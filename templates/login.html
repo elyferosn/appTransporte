@@ -1,0 +1,25 @@
+{% extends 'base.html' %}<!-- Tela pública de autenticação: identificação do portal e formulário de entrada. -->{% block titulo %}Entrar{% endblock %}{% block conteudo %}
+<div class="login-screen">
+  <section class="login-intro">
+    <a class="login-brand" href="{{ url_for('main.inicio') }}"><span class="brand-icon">T</span><span>Transporte<small>GESTÃO MUNICIPAL</small></span></a>
+    <div class="login-intro-copy">
+      <p class="eyebrow">PORTAL DE TRANSPORTE</p>
+      <h2>Organização das viagens em um só lugar.</h2>
+      <p>Acesse para consultar agendas e registrar os atendimentos de transporte.</p>
+    </div>
+    <p class="login-intro-footer">Sistema interno · Acesso autorizado</p>
+  </section>
+  <section class="login-card">
+    <p class="eyebrow">ENTRAR</p>
+    <h1>Acesse sua conta</h1>
+    <p class="muted">Use seu CPF e sua senha cadastrada.</p>
+    <form method="post" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>CPF<input name="usuario" inputmode="numeric" autocomplete="username" placeholder="000.000.000-00" maxlength="14" required autofocus></label>
+      <label>Senha<input type="password" name="senha" autocomplete="current-password" placeholder="Sua senha" required></label>
+      <button class="button primary wide">Entrar no sistema</button>
+    </form>
+    <p class="login-note">Em caso de dificuldade, procure o administrador do sistema.</p>
+  </section>
+</div>
+{% endblock %}

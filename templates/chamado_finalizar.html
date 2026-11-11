@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block titulo %}Finalizar chamado{% endblock %}
+{% block conteudo %}
+<div class="page-heading">
+  <div><p class="eyebrow">CHAMADO #{{ chamado.id }}</p><h1>Finalizar chamado</h1><p class="muted">Informe o motorista e a data e hora em que o atendimento foi concluído.</p></div>
+  <a class="button" href="{{ url_for('dados.listar', nome_modelo='chamados') }}">Voltar aos chamados</a>
+</div>
+<div class="panel">
+  <div class="panel-heading"><h2>{{ chamado.cidadao.nome_exibicao if chamado.cidadao else chamado.cidadao_nome or 'Cidadão sem identificação' }}{% if chamado.cidadao and chamado.cidadao.apelido %}<br><small>Apelido: {{ chamado.cidadao.apelido }}</small>{% endif %}</h2></div>
+  <form method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" id="motorista-final-id" name="motorista_final_id" value="{{ chamado.motorista_final_id or '' }}">
+    <label class="span-2">Buscar motorista pelo nome *<input id="buscar-motorista-final" type="search" autocomplete="off" placeholder="Digite pelo menos 2 caracteres" value="{{ chamado.motorista_final_registro.nome if chamado.motorista_final_registro else '' }}"><small id="resultado-busca-motorista-final" class="muted" aria-live="polite">Pesquise e selecione um motorista cadastrado.</small><div id="lista-motoristas-final" class="address-results" role="listbox"></div></label>
+    <div id="motorista-final-selecionado" class="selection-card span-2" {% if not chamado.motorista_final_registro %}hidden{% endif %}><span id="motorista-final-selecionado-texto">{% if chamado.motorista_final_registro %}{{ chamado.motorista_final_registro.nome }} · Crachá {{ chamado.motorista_final_registro.cracha }}{% endif %}</span><button type="button" class="button danger small" id="remover-motorista-final">Remover seleção</button></div>
+    <label>Data e hora final *<input type="datetime-local" name="data_hora_final" required value="{{ chamado.data_hora_final.strftime('%Y-%m-%dT%H:%M') if chamado.data_hora_final else '' }}"></label>
+    <div class="form-actions"><button class="button primary">{{ 'Atualizar finalização' if chamado.data_hora_final else 'Finalizar chamado' }}</button></div>
+  </form>
+</div>
+<script>
+(() => {
+  const busca = document.getElementById('buscar-motorista-final');
+  const id = document.getElementById('motorista-final-id');
+  const lista = document.getElementById('lista-motoristas-final');
+  const selecionado = document.getElementById('motorista-final-selecionado');
+  const textoSelecionado = document.getElementById('motorista-final-selecionado-texto');
+  const mensagem = document.getElementById('resultado-busca-motorista-final');
+  let temporizador;
+  busca.addEventListener('input', () => {
+    clearTimeout(temporizador);
+    id.value = '';
+    selecionado.hidden = true;
+    lista.replaceChildren();
+    const termo = busca.value.trim();
+    if (termo.length < 2) {
+      mensagem.textContent = 'Digite pelo menos 2 caracteres para pesquisar.';
+      return;
+    }
+    mensagem.textContent = 'Pesquisando motoristas...';
+    temporizador = setTimeout(async () => {
+      try {
+        const resposta = await fetch(`{{ url_for('dados.buscar_motorista_chamado') }}?q=${encodeURIComponent(termo)}`, {headers: {'Accept': 'application/json'}});
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível pesquisar motoristas.');
+        if (!dados.resultados.length) {
+          mensagem.textContent = 'Nenhum motorista ativo encontrado.';
+          return;
+        }
+        mensagem.textContent = `${dados.resultados.length} motorista(s) encontrado(s). Selecione um.`;
+        dados.resultados.forEach(motorista => {
+          const botao = document.createElement('button');
+          botao.type = 'button';
+          botao.className = 'address-result';
+          botao.setAttribute('role', 'option');
+          botao.textContent = `${motorista.nome} · Crachá ${motorista.cracha}`;
+          botao.addEventListener('click', () => {
+            id.value = motorista.id;
+            busca.value = motorista.nome;
+            textoSelecionado.textContent = `${motorista.nome} · Crachá ${motorista.cracha}`;
+            selecionado.hidden = false;
+            lista.replaceChildren();
+            mensagem.textContent = 'Motorista selecionado.';
+          });
+          lista.append(botao);
+        });
+      } catch (erro) {
+        mensagem.textContent = erro.message || 'Não foi possível pesquisar motoristas.';
+      }
+    }, 250);
+  });
+  document.getElementById('remover-motorista-final').addEventListener('click', () => {
+    id.value = '';
+    busca.value = '';
+    selecionado.hidden = true;
+    lista.replaceChildren();
+    mensagem.textContent = 'Selecione um motorista cadastrado para continuar.';
+  });
+  document.querySelector('#motorista-final-id').form.addEventListener('submit', evento => {
+    if (!id.value) {
+      evento.preventDefault();
+      mensagem.textContent = 'Selecione um motorista da lista antes de finalizar.';
+      busca.focus();
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+<!doctype html><!-- Estrutura compartilhada, navegação, mensagens e identificação da sessão. -->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Transporte{% endblock %} | Sistema de Transporte</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% if usuario_logado %}
+<aside class="sidebar">
+  <a class="brand" href="{{ url_for('main.inicio') }}"><span class="brand-icon">T</span><span>Transporte<small>GESTÃO MUNICIPAL</small></span></a>
+  <nav class="sidebar-nav" aria-label="Menu principal">
+  <p class="nav-label">MENU PRINCIPAL</p>
+  {% if usuario_logado.usuario == '00000000000' %}<a class="nav-link" href="{{ url_for('main.painel') }}">⌂ <span>Painel</span></a>{% endif %}
+  {% set ns = namespace(mostra_cadastros=false) %}{% for chave, rotulo in [('frotas','Frotas'),('motoristas','Motoristas'),('cidadaos','Cidadão'),('chamados','Chamados'),('agendas','Agendas'),('agendamentos','Agendamentos')] %}{% if pode_acessar_rota(usuario_logado, chave) %}{% set ns.mostra_cadastros = true %}{% endif %}{% endfor %}
+  {% if ns.mostra_cadastros %}<p class="nav-label">CADASTROS</p>{% endif %}
+  {% if pode_acessar_rota(usuario_logado, 'agendamentos') or pode_acessar_rota(usuario_logado, 'chamados') %}<a class="nav-link" href="{{ url_for('dados.locais_destino') }}">⌂ <span>Locais</span></a>{% endif %}
+  {% for chave, rotulo in [('frotas','Frotas'),('motoristas','Motoristas'),('cidadaos','Cidadão'),('chamados','Chamados'),('agendas','Agendas'),('agendamentos','Agendamentos')] %}
+  {% if pode_acessar_rota(usuario_logado, chave) %}<a class="nav-link" href="{{ url_for('dados.listar', nome_modelo=chave) }}">▤ <span>{{ rotulo }}</span></a>{% endif %}
+  {% endfor %}
+  {% if usuario_logado.usuario == '00000000000' %}
+  <p class="nav-label">ADMINISTRAÇÃO</p>
+  <a class="nav-link" href="{{ url_for('usuarios.listar') }}">♙ <span>Usuários</span></a>
+  <a class="nav-link" href="{{ url_for('perfis.listar') }}">⚙ <span>Perfis de acesso</span></a>
+  <a class="nav-link" href="{{ url_for('usuarios.sessoes') }}">◷ <span>Histórico de sessões</span></a>
+  {% endif %}
+  </nav>
+  <div class="sidebar-bottom"><div class="user-avatar">{{ usuario_logado.nome[:1]|upper }}</div><div class="user-info"><strong>{{ usuario_logado.nome }}</strong><small>{{ usuario_logado.perfil.nome if usuario_logado.perfil else 'Usuário' }}</small></div><form action="{{ url_for('auth.sair') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="logout" title="Sair">↗</button></form></div>
+</aside>
+{% endif %}
+<main class="main {% if not usuario_logado %}main-full{% endif %}">
+  {% if usuario_logado %}<header class="topbar"><span>Gestão de Transporte</span><span>{{ hoje.strftime('%d/%m/%Y') }}</span></header>{% endif %}
+  <section class="content">
+    {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}<div class="alert alert-{{ categoria }}">{{ mensagem }}</div>{% endfor %}
+    {% block conteudo %}{% endblock %}
+  </section>
+</main>
+</body>
+</html>

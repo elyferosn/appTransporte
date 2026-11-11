@@ -1,0 +1,393 @@
+{% extends 'base.html' %}<!-- Busca de viagens, formulário do paciente e relação de agendamentos. -->{% block titulo %}Agendamentos{% endblock %}{% block conteudo %}
+<div class="page-heading"><div><p class="eyebrow">CADASTROS</p><h1>{{ 'Editar agendamento' if registro_edicao else 'Novo agendamento' }}</h1><p class="muted">Selecione uma agenda com vaga, o cidadão e os locais de saída e destino.</p></div><a class="button" href="{{ url_for('dados.listar', nome_modelo='agendamentos') }}">Ver agendamentos</a></div>
+<div class="panel"><div class="panel-heading"><h2>{{ 'Editar agendamento' if registro_edicao else 'Novo agendamento' }}</h2>{% if registro_edicao %}<a class="button small" href="{{ url_for('dados.listar', nome_modelo='agendamentos') }}">Cancelar edição</a>{% endif %}</div>
+<form id="form-agendamento" method="post" action="{{ url_for('dados.atualizar', nome_modelo='agendamentos', registro_id=registro_edicao.id) if registro_edicao else url_for('dados.criar', nome_modelo='agendamentos') }}" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" id="cidadao_id" name="cidadao_id" value="{{ registro_edicao.cidadao_id if registro_edicao else '' }}"><input type="hidden" id="agenda_id" name="agenda_id" value="{{ registro_edicao.agenda_id if registro_edicao else agenda_selecionada or '' }}">
+<div class="span-2"><label for="filtro-destino">Cidade de destino da agenda</label><input id="filtro-destino" type="search" placeholder="Digite a cidade de destino, por exemplo HC"></div>
+<label>Dia<input id="filtro-dia" type="date"></label><label>Horário<input id="filtro-horario" type="time"></label>
+<div class="span-2"><strong>Agendas disponíveis</strong><p id="agenda-instrucao" class="muted">Busque pela cidade de destino e selecione uma agenda com vaga.</p><div class="agenda-table-wrap"><div class="agenda-table-header" aria-hidden="true"><span>Cidade</span><span>Informação</span><span>Data e horário</span><span>Vagas disponíveis</span></div><div id="resultados-agendas" class="address-results agenda-cards" role="listbox"></div></div></div>
+<section id="detalhes-agendamento" class="booking-details span-2" {% if not registro_edicao and not agenda_selecionada %}hidden{% endif %}><h2>Dados do cidadão</h2><div class="booking-fields">
+<label>CPF do cidadão<input id="cpf-cidadao" name="cpf" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" required value="{{ (registro_edicao.cidadao.cpf if registro_edicao and registro_edicao.cidadao else (registro_edicao.cpf if registro_edicao else cpf_inicial)) or '' }}"></label>
+<label>Nome completo, nome social ou apelido<input id="nome-busca-cidadao" autocomplete="off" placeholder="Digite um dos nomes"></label><label>Data de nascimento<input id="nascimento-busca-cidadao" type="date"></label>
+
+<div id="local-destino-selecionado" class="selection-card span-2" {% if not local_destino_inicial %}hidden{% endif %}><span id="local-destino-selecionado-texto">{% if local_destino_inicial %}{{ local_destino_inicial.nome }} — {{ local_destino_inicial.cidade_registro.nome if local_destino_inicial.cidade_registro else local_destino_inicial.cidade }}{% if local_destino_inicial.cidade_registro and local_destino_inicial.cidade_registro.uf %} - {{ local_destino_inicial.cidade_registro.uf }}{% endif %} · {{ local_destino_inicial.rua }}, {{ local_destino_inicial.numero }} · {{ local_destino_inicial.bairro }}{% endif %}</span><button type="button" class="button danger small" id="remover-local-destino">Remover</button></div>
+<h3 class="booking-subtitle span-2">2. Local de saída do cidadão</h3>
+<input type="hidden" id="local-saida-id" name="local_saida_id" value="{{ registro_edicao.local_saida_id if registro_edicao else request.args.get('local_saida_id', '') }}">
+<input type="hidden" id="cidade-id-saida" value="{{ local_saida_inicial.cidade_id if local_saida_inicial else '' }}"><label class="span-2">Buscar cidade do local de saída *<input id="cidade-busca-saida" type="search" autocomplete="off" placeholder="Digite pelo menos 2 caracteres" value="{{ local_saida_inicial.cidade_registro.nome if local_saida_inicial and local_saida_inicial.cidade_registro else (local_saida_inicial.cidade if local_saida_inicial else '') }}"><div id="lista-cidades-saida" class="address-results" role="listbox"></div></label>
+<label class="span-2">Buscar local de saída por nome, CEP ou logradouro<input id="buscar-local-saida" type="search" autocomplete="off" placeholder="Selecione uma cidade antes de pesquisar" value="{{ local_saida_inicial.nome if local_saida_inicial else '' }}" {% if not local_saida_inicial %}disabled{% endif %}><small id="resultado-busca-saida" class="muted" aria-live="polite">Selecione a cidade para habilitar a busca do local.</small><div id="lista-locais-saida" class="address-results" role="listbox"></div><button type="button" class="button small" id="abrir-modal-local-saida">Cadastrar local</button></label>
+
+<div class="span-2"><button type="button" id="buscar-cidadao-por-dados" class="button">Buscar por nome ou data de nascimento</button><small id="resultado-cidadao" class="muted">Digite o CPF para localizar automaticamente, ou pesquise por nome/data de nascimento.</small><div id="resultados-cidadao" class="address-results" role="listbox"></div></div>
+<h3 class="booking-subtitle span-2">3. Local de destino</h3>
+<input type="hidden" id="local-destino-id" name="local_destino_id" value="{{ registro_edicao.local_destino_id if registro_edicao else request.args.get('local_destino_id', '') }}">
+<input type="hidden" id="cidade-id-destino" value="{{ local_destino_inicial.cidade_id if local_destino_inicial else '' }}"><label class="span-2">Buscar cidade do destino *<input id="cidade-busca-destino" type="search" autocomplete="off" placeholder="Digite pelo menos 2 caracteres" value="{{ local_destino_inicial.cidade_registro.nome if local_destino_inicial and local_destino_inicial.cidade_registro else (local_destino_inicial.cidade if local_destino_inicial else '') }}"><div id="lista-cidades-destino" class="address-results" role="listbox"></div></label>
+<label class="span-2">Buscar local por nome, CEP ou logradouro<input id="buscar-local-destino" type="search" autocomplete="off" placeholder="Selecione uma cidade antes de pesquisar" value="{{ local_destino_inicial.nome if local_destino_inicial else '' }}" {% if not local_destino_inicial %}disabled{% endif %}><small id="resultado-busca-destino" class="muted" aria-live="polite">Selecione a cidade para habilitar a busca do local.</small><div id="lista-locais-destino" class="address-results" role="listbox"></div><button type="button" class="button small" id="abrir-modal-local-destino">Cadastrar local</button></label>
+
+<div id="local-saida-selecionado" class="selection-card span-2" {% if not local_saida_inicial %}hidden{% endif %}><span id="local-saida-selecionado-texto">{% if local_saida_inicial %}{{ local_saida_inicial.nome }} — {{ local_saida_inicial.cidade_registro.nome if local_saida_inicial.cidade_registro else local_saida_inicial.cidade }}{% if local_saida_inicial.cidade_registro and local_saida_inicial.cidade_registro.uf %} - {{ local_saida_inicial.cidade_registro.uf }}{% endif %} · {{ local_saida_inicial.rua }}, {{ local_saida_inicial.numero }} · {{ local_saida_inicial.bairro }}{% endif %}</span><button type="button" class="button danger small" id="remover-local-saida">Remover</button></div>
+<label>Telefone de contato do paciente<input id="telefone-contato" name="telefone_contato" type="tel" inputmode="numeric" maxlength="15" required placeholder="(00) 00000-0000" value="{{ (registro_edicao.telefone_contato if registro_edicao else request.args.get('telefone', '')) or '' }}"><small class="muted">Digite DDD e telefone, com até 11 números.</small></label>
+<p class="booking-manage-link span-2"><a href="{{ url_for('dados.locais_destino') }}" target="_blank" rel="noopener">Cadastrar ou editar locais</a></p>
+<label class="span-2">Observação<textarea name="observacao" maxlength="500" rows="4" placeholder="Informações adicionais para o transporte (até 500 caracteres)">{{ (registro_edicao.observacao if registro_edicao else request.args.get('observacao', '')) or '' }}</textarea><small class="muted">Até 500 caracteres.</small></label>
+</div></section>
+<div class="form-actions"><button class="button primary">{{ 'Salvar alterações' if registro_edicao else 'Criar agendamento' }}</button></div></form></div>
+<dialog id="modal-cadastro-local" class="address-dialog"><form id="form-cadastro-local" class="form-grid"><div class="panel-heading span-2"><h2 id="titulo-modal-local">Cadastrar local</h2><button type="button" class="button small" id="fechar-modal-local">Fechar</button></div><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Nome do local *<input name="nome_local" maxlength="150" required></label><input type="hidden" name="cidade_id" required><label>Cidade selecionada *<input id="cidade-modal-local" readonly required placeholder="Selecione a cidade na busca"></label><label>CEP<input id="cep-cadastro-local" name="cep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000"><button type="button" class="button small" id="buscar-cep-cadastro-local">Buscar CEP</button><small id="retorno-cep-cadastro-local" class="muted">A consulta preenche cidade, bairro e logradouro.</small></label><label>Bairro *<input name="bairro" maxlength="150" required></label><label>Logradouro *<input name="logradouro" maxlength="200" required></label><label>Número *<input name="numero" maxlength="30" required></label><label class="span-2">Referência<input name="referencia" maxlength="200"></label><p id="erro-cadastro-local" class="alert alert-erro span-2" hidden></p><div class="form-actions"><button class="button primary">Salvar e selecionar local</button></div></form></dialog>
+<!-- Busca e seleção de agenda, consulta de cidadão e preenchimento dos dados. -->
+<script>
+(() => {
+  const campoCpf = document.getElementById('cpf-cidadao');
+  const campoNomeBuscaCidadao = document.getElementById('nome-busca-cidadao');
+  const campoNascimentoBuscaCidadao = document.getElementById('nascimento-busca-cidadao');
+  const botaoBuscaCidadao = document.getElementById('buscar-cidadao-por-dados');
+  const listaResultadosCidadao = document.getElementById('resultados-cidadao');
+  const cidadaoId = document.getElementById('cidadao_id');
+  const resultado = document.getElementById('resultado-cidadao');
+  const campoDestino = document.getElementById('filtro-destino');
+  const selectAgenda = document.getElementById('agenda_id');
+  const campoDia = document.getElementById('filtro-dia');
+  const campoHorario = document.getElementById('filtro-horario');
+  const listaAgendas = document.getElementById('resultados-agendas');
+  let cardsAgenda = [];
+  const instrucaoAgenda = document.getElementById('agenda-instrucao');
+  const detalhesAgendamento = document.getElementById('detalhes-agendamento');
+  let sequenciaBuscaDestino = 0;
+  const mostrarDetalhes = mostrar => {
+    detalhesAgendamento.hidden = !mostrar;
+    detalhesAgendamento.querySelectorAll('input, select, textarea, button').forEach(campo => { campo.disabled = !mostrar; });
+  };
+  mostrarDetalhes(Boolean(selectAgenda.value));
+  const formulario = document.getElementById('form-agendamento');
+  if (!campoCpf || !cidadaoId || !resultado) return;
+
+  let temporizador;
+  const buscarPorNomeOuNascimento = async () => {
+    const nome = campoNomeBuscaCidadao.value.trim();
+    const dataNascimento = campoNascimentoBuscaCidadao.value;
+    listaResultadosCidadao.replaceChildren();
+    cidadaoId.value = '';
+    if (!nome && !dataNascimento) {
+      resultado.textContent = 'Informe o nome ou a data de nascimento para pesquisar.';
+      return;
+    }
+    resultado.textContent = 'Buscando cidadãos…';
+    const url = new URL('{{ url_for('dados.buscar_cidadao') }}', window.location.origin);
+    if (nome) url.searchParams.set('nome', nome);
+    if (dataNascimento) url.searchParams.set('data_nascimento', dataNascimento);
+    try {
+      const resposta = await fetch(url);
+      const dados = await resposta.json();
+      const pessoas = dados.resultados || [];
+      if (!pessoas.length) {
+        resultado.textContent = 'Nenhum cidadão ativo encontrado com esses dados.';
+        return;
+      }
+      resultado.textContent = `${pessoas.length} cidadão(s) encontrado(s). Selecione o correto:`;
+      for (const pessoa of pessoas) {
+        const opcao = document.createElement('button');
+        opcao.type = 'button';
+        opcao.className = 'button small';
+        const nascimento = pessoa.data_nascimento ? new Date(`${pessoa.data_nascimento}T00:00:00`).toLocaleDateString('pt-BR') : 'sem data';
+        opcao.textContent = `${pessoa.nome_exibicao || pessoa.nome}${pessoa.apelido ? ' \u00b7 Apelido: ' + pessoa.apelido : ''} · CPF ${pessoa.cpf || 'não informado'} · Nascimento ${nascimento}`;
+        opcao.setAttribute('role', 'option');
+        opcao.addEventListener('click', () => {
+          cidadaoId.value = pessoa.id;
+          campoCpf.value = pessoa.cpf;
+          resultado.textContent = `Cidadão selecionado: ${pessoa.nome_exibicao || pessoa.nome}${pessoa.apelido ? ' \u00b7 Apelido: ' + pessoa.apelido : ''}`;
+          listaResultadosCidadao.replaceChildren();
+        });
+        listaResultadosCidadao.appendChild(opcao);
+      }
+    } catch (_erro) {
+      resultado.textContent = 'Não foi possível buscar o cidadão. Tente novamente.';
+    }
+  };
+  botaoBuscaCidadao.addEventListener('click', buscarPorNomeOuNascimento);
+  const buscarCidadao = async () => {
+    const cpf = campoCpf.value.replace(/\D/g, '');
+    cidadaoId.value = '';
+    if (cpf.length !== 11) {
+      resultado.textContent = 'Digite os 11 números do CPF.';
+      return false;
+    }
+    try {
+      const resposta = await fetch(`{{ url_for('dados.buscar_cidadao') }}?cpf=${encodeURIComponent(cpf)}`);
+      const pessoa = await resposta.json();
+      if (pessoa.encontrado) {
+        cidadaoId.value = pessoa.id;
+        resultado.textContent = `Cidadão localizado: ${pessoa.nome_exibicao || pessoa.nome}${pessoa.apelido ? ' \u00b7 Apelido: ' + pessoa.apelido : ''}`;
+        return true;
+      }
+      const retorno = new URL('{{ url_for('dados.listar', nome_modelo='agendamentos') }}', window.location.origin);
+      retorno.searchParams.set('cpf', cpf);
+      retorno.searchParams.set('novo', '1');
+      if (selectAgenda.value) retorno.searchParams.set('agenda_id', selectAgenda.value);
+      for (const nome of ['local_saida_id', 'local_destino_id']) {
+        const valor = formulario.elements[nome]?.value;
+        if (valor) retorno.searchParams.set(nome, valor);
+      }
+      for (const [nome, parametro] of [['telefone_contato', 'telefone'], ['observacao', 'observacao']]) {
+        const valor = formulario.elements[nome]?.value;
+        if (valor) retorno.searchParams.set(parametro, valor);
+      }
+      const cadastro = new URL('{{ url_for('dados.listar', nome_modelo='cidadaos') }}', window.location.origin);
+      cadastro.searchParams.set('cpf', cpf);
+      cadastro.searchParams.set('return_to', retorno.pathname + retorno.search);
+      resultado.textContent = 'CPF não encontrado entre os cidadão ativos. ';
+      const link = document.createElement('a');
+      link.href = cadastro.toString();
+      link.textContent = 'Cadastrar cidadão';
+      resultado.appendChild(link);
+      return false;
+    } catch (_erro) {
+      resultado.textContent = 'Não foi possível buscar o cidadão. Tente novamente.';
+      return false;
+    }
+  };
+
+  campoCpf.addEventListener('input', () => {
+    cidadaoId.value = '';
+    listaResultadosCidadao.replaceChildren();
+    clearTimeout(temporizador);
+    temporizador = setTimeout(buscarCidadao, 300);
+  });
+  if (campoCpf.value.replace(/\D/g, '').length === 11) buscarCidadao();
+
+  formulario.addEventListener('submit', async (evento) => {
+    if (!selectAgenda.value) {
+      evento.preventDefault();
+      instrucaoAgenda.textContent = 'Selecione uma agenda antes de continuar.';
+      document.getElementById('resultados-agendas').scrollIntoView({behavior: 'smooth', block: 'center'});
+      return;
+    }
+    if (!document.getElementById('local-saida-id').value || !document.getElementById('local-destino-id').value) {
+      evento.preventDefault();
+      instrucaoAgenda.textContent = 'Selecione o local de saída e o local de destino.';
+      return;
+    }
+    if (!cidadaoId.value && !(await buscarCidadao())) evento.preventDefault();
+  });
+
+  const buscarAgendas = async () => {
+    const sequencia = ++sequenciaBuscaDestino;
+    const url = new URL('{{ url_for('dados.buscar_agendas_destino') }}', window.location.origin);
+    url.searchParams.set('q', campoDestino.value.trim());
+    if (campoDia.value) url.searchParams.set('dia', campoDia.value);
+    if (campoHorario.value) url.searchParams.set('horario', campoHorario.value);
+    {% if registro_edicao %}url.searchParams.set('editar', '{{ registro_edicao.id }}');{% endif %}
+    instrucaoAgenda.textContent = 'Buscando agendas e vagas…';
+    try {
+      const resposta = await fetch(url);
+      if (!resposta.ok) throw new Error('Falha na busca');
+      const dados = await resposta.json();
+      if (sequencia !== sequenciaBuscaDestino) return;
+      listaAgendas.replaceChildren();
+      cardsAgenda = [];
+      dados.agendas.forEach(agenda => {
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'address-result agenda-card';
+        botao.disabled = agenda.vagas <= 0 && String(agenda.id) !== selectAgenda.value;
+        botao.dataset.id = agenda.id;
+        botao.dataset.cidade = agenda.cidade;
+        botao.setAttribute('role', 'option');
+        botao.setAttribute('aria-pressed', 'false');
+        const horarioTexto = agenda.data_hora ? new Date(agenda.data_hora).toLocaleString('pt-BR') : 'Data não informada';
+        botao.innerHTML = `<strong></strong><span></span><span></span><span></span>`;
+        botao.children[0].textContent = agenda.cidade;
+        botao.children[1].textContent = agenda.informacao || 'Sem observações';
+        botao.children[2].textContent = horarioTexto;
+        botao.children[3].textContent = `${agenda.vagas} vaga(s)`;
+        botao.addEventListener('click', () => selecionarAgenda(botao));
+        listaAgendas.appendChild(botao);
+        cardsAgenda.push(botao);
+      });
+      const selecionadaVisivel = cardsAgenda.find(card => card.dataset.id === selectAgenda.value);
+      if (selectAgenda.value && !selecionadaVisivel) {
+        selectAgenda.value = '';
+        mostrarDetalhes(false);
+      }
+      if (!cardsAgenda.length) instrucaoAgenda.textContent = 'Nenhuma agenda encontrada para essa cidade, data ou horário.';
+      else if (selecionadaVisivel) selecionarAgenda(selecionadaVisivel);
+      else instrucaoAgenda.textContent = `${cardsAgenda.length} agenda(s) encontrada(s). Selecione uma com vaga disponível.`;
+    } catch (_erro) {
+      if (sequencia === sequenciaBuscaDestino) instrucaoAgenda.textContent = 'Não foi possível buscar agendas e vagas. Tente novamente.';
+    }
+  };
+  let temporizadorBuscaDestino;
+  campoDestino.addEventListener('input', () => {
+    clearTimeout(temporizadorBuscaDestino);
+    temporizadorBuscaDestino = setTimeout(async () => {
+      buscarAgendas();
+    }, 180);
+  });
+  [campoDia, campoHorario].forEach(campo => campo.addEventListener('input', buscarAgendas));
+  const selecionarAgenda = card => {
+    cardsAgenda.forEach(item => {
+      item.classList.remove('agenda-card-selected');
+      item.setAttribute('aria-pressed', 'false');
+    });
+    card.classList.add('agenda-card-selected');
+    card.setAttribute('aria-pressed', 'true');
+    selectAgenda.value = card.dataset.id;
+    mostrarDetalhes(true);
+    instrucaoAgenda.textContent = 'Agenda selecionada. Continue com os dados do cidadão e embarque.';
+  };
+  buscarAgendas();
+  const telefoneContato = document.getElementById('telefone-contato');
+  const mascararTelefone = () => {
+    const numeros = telefoneContato.value.replace(/\D/g, '').slice(0, 11);
+    if (numeros.length <= 2) telefoneContato.value = numeros ? `(${numeros}` : '';
+    else if (numeros.length <= 10) telefoneContato.value = `(${numeros.slice(0, 2)}) ${numeros.slice(2, 6)}${numeros.length > 6 ? `-${numeros.slice(6, 10)}` : ''}`;
+    else telefoneContato.value = `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7, 11)}`;
+  };
+  telefoneContato.addEventListener('input', mascararTelefone);
+  mascararTelefone();
+  const modalLocal = document.getElementById('modal-cadastro-local');
+  const locaisIniciais = {
+    saida: {{ ({'id': local_saida_inicial.id, 'nome_local': local_saida_inicial.nome, 'cidade': local_saida_inicial.cidade or '', 'cidade_id': local_saida_inicial.cidade_id or '', 'uf': local_saida_inicial.cidade_registro.uf if local_saida_inicial.cidade_registro else '', 'cep': local_saida_inicial.cep or '', 'bairro': local_saida_inicial.bairro or '', 'logradouro': local_saida_inicial.rua or '', 'numero': local_saida_inicial.numero or ''}|tojson) if local_saida_inicial else 'null' }},
+    destino: {{ ({'id': local_destino_inicial.id, 'nome_local': local_destino_inicial.nome, 'cidade': local_destino_inicial.cidade or '', 'cidade_id': local_destino_inicial.cidade_id or '', 'uf': local_destino_inicial.cidade_registro.uf if local_destino_inicial.cidade_registro else '', 'cep': local_destino_inicial.cep or '', 'bairro': local_destino_inicial.bairro or '', 'logradouro': local_destino_inicial.rua or '', 'numero': local_destino_inicial.numero or ''}|tojson) if local_destino_inicial else 'null' }}
+  };
+  const seletoresLocais = {
+    saida: {id: 'local-saida-id', busca: 'buscar-local-saida', cidade: 'cidade-busca-saida', lista: 'lista-locais-saida', mensagem: 'resultado-busca-saida', card: 'local-saida-selecionado', texto: 'local-saida-selecionado-texto'},
+    destino: {id: 'local-destino-id', busca: 'buscar-local-destino', cidade: 'cidade-busca-destino', lista: 'lista-locais-destino', mensagem: 'resultado-busca-destino', card: 'local-destino-selecionado', texto: 'local-destino-selecionado-texto'}
+  };
+  const idsCidadeLocal = {saida: 'cidade-id-saida', destino: 'cidade-id-destino'};
+  Object.entries(seletoresLocais).forEach(([alvo, campos]) => {
+    const buscaCidade = document.getElementById(campos.cidade);
+    const idCidade = document.getElementById(idsCidadeLocal[alvo]);
+    const listaCidade = document.getElementById(`lista-cidades-${alvo}`);
+    let temporizador;
+    const buscarCidades = async termo => {
+      const resposta = await fetch(`{{ url_for('dados.buscar_cidades_locais') }}?q=${encodeURIComponent(termo)}`);
+      return (await resposta.json()).resultados || [];
+    };
+    buscaCidade.addEventListener('input', () => {
+      clearTimeout(temporizador); idCidade.value = ''; listaCidade.replaceChildren();
+      buscaCidade.dispatchEvent(new Event('change'));
+      const termo = buscaCidade.value.trim(); if (termo.length < 2) return;
+      temporizador = setTimeout(async () => {
+        try {
+          (await buscarCidades(termo)).forEach(cidade => {
+            const botao = document.createElement('button'); botao.type = 'button'; botao.className = 'address-result'; botao.textContent = cidade.uf ? `${cidade.nome} - ${cidade.uf}` : cidade.nome;
+            botao.addEventListener('click', () => { buscaCidade.value = cidade.nome; idCidade.value = cidade.id; listaCidade.replaceChildren(); buscaCidade.dispatchEvent(new Event('change')); });
+            listaCidade.append(botao);
+          });
+        } catch (_erro) { listaCidade.replaceChildren(); }
+      }, 250);
+    });
+    if (buscaCidade.value.trim().length >= 2) buscarCidades(buscaCidade.value.trim()).then(cidades => {
+      const cidade = cidades.find(item => item.nome.toLocaleLowerCase('pt-BR') === buscaCidade.value.trim().toLocaleLowerCase('pt-BR'));
+      if (!idCidade.value && cidade) idCidade.value = cidade.id;
+    }).catch(() => {});
+  });
+  let alvoModalLocal = 'saida';
+  const selecionarLocal = (local, alvo) => {
+    const campos = seletoresLocais[alvo];
+    document.getElementById(campos.cidade).value = local.cidade || '';
+    if (local.cidade_id) document.getElementById(idsCidadeLocal[alvo]).value = local.cidade_id;
+    document.getElementById(campos.id).value = local.id;
+    document.getElementById(campos.texto).textContent = `${local.nome_local} — ${local.cidade || ''}${local.uf ? ` - ${local.uf}` : ''} · ${local.logradouro || ''}, ${local.numero || ''} · ${local.bairro || ''} · ${local.cep || 'sem CEP'}`;
+    document.getElementById(campos.card).hidden = false;
+    document.getElementById(campos.mensagem).textContent = `Local selecionado: ${local.nome_local} — ${local.cidade}`;
+    document.getElementById(campos.lista).replaceChildren();
+    document.getElementById(campos.busca).value = local.nome_local;
+  };
+  Object.entries(seletoresLocais).forEach(([alvo, campos]) => {
+    const busca = document.getElementById(campos.busca);
+    const cidade = document.getElementById(campos.cidade);
+    const idCidade = document.getElementById(idsCidadeLocal[alvo]);
+    const lista = document.getElementById(campos.lista);
+    const mensagem = document.getElementById(campos.mensagem);
+    let timer;
+    cidade.addEventListener('change', () => {
+      document.getElementById(campos.id).value = '';
+      document.getElementById(campos.card).hidden = true;
+      lista.replaceChildren();
+      busca.value = '';
+      busca.disabled = !idCidade.value;
+      mensagem.textContent = idCidade.value ? 'Digite pelo menos 2 caracteres para pesquisar nessa cidade.' : 'Selecione a cidade para habilitar a busca do local.';
+    });
+    busca.addEventListener('input', () => {
+      clearTimeout(timer);
+      document.getElementById(campos.id).value = '';
+      document.getElementById(campos.card).hidden = true;
+      const termo = busca.value.trim();
+      if (!idCidade.value) { lista.replaceChildren(); mensagem.textContent = 'Selecione a cidade antes de pesquisar.'; return; }
+      if (termo.length < 2) { lista.replaceChildren(); mensagem.textContent = 'Digite pelo menos 2 caracteres para pesquisar nessa cidade.'; return; }
+      mensagem.textContent = 'Pesquisando locais na cidade selecionada…';
+      timer = setTimeout(async () => {
+        try {
+          const resposta = await fetch(`{{ url_for('dados.buscar_local_chamado') }}?q=${encodeURIComponent(termo)}&cidade=${encodeURIComponent(cidade.value)}&cidade_id=${encodeURIComponent(idCidade.value)}`);
+          const dados = await resposta.json();
+          lista.replaceChildren();
+          if (!dados.resultados.length) { mensagem.textContent = 'Nenhum local encontrado nessa cidade. Use “Cadastrar local”.'; return; }
+          mensagem.textContent = `${dados.resultados.length} local(is) encontrado(s) nessa cidade.`;
+          dados.resultados.forEach(local => {
+            const botao = document.createElement('button');
+            botao.type = 'button'; botao.className = 'address-result'; botao.setAttribute('role', 'option');
+            botao.textContent = `${local.nome_local} — ${local.cidade || ''}${local.uf ? ` - ${local.uf}` : ''} · ${local.logradouro || ''}, ${local.numero || ''} · ${local.cep || 'sem CEP'}`;
+            botao.addEventListener('click', () => selecionarLocal(local, alvo));
+            lista.append(botao);
+          });
+        } catch (_erro) { mensagem.textContent = 'Não foi possível pesquisar os locais.'; }
+      }, 250);
+    });
+    document.getElementById(`abrir-modal-local-${alvo}`).addEventListener('click', () => {
+      alvoModalLocal = alvo;
+      document.getElementById('titulo-modal-local').textContent = `Cadastrar local de ${alvo}`;
+      const cidadeSelecionada = cidade.value;
+      const cidadeCadastro = document.querySelector('#form-cadastro-local [name="cidade_id"]');
+      cidadeCadastro.value = document.getElementById(idsCidadeLocal[alvo]).value;
+      document.getElementById('cidade-modal-local').value = cidadeSelecionada;
+      if (!cidadeCadastro.value) { alert('Pesquise e selecione uma cidade antes de cadastrar o local.'); return; }
+      modalLocal.showModal();
+    });
+    document.getElementById(`remover-local-${alvo}`).addEventListener('click', () => {
+      document.getElementById(campos.id).value = '';
+      busca.value = '';
+      document.getElementById(campos.card).hidden = true;
+      lista.replaceChildren();
+      mensagem.textContent = 'Local removido da seleção. Pesquise ou cadastre outro.';
+    });
+    if (locaisIniciais[alvo]) selecionarLocal(locaisIniciais[alvo], alvo);
+  });
+  document.getElementById('fechar-modal-local').addEventListener('click', () => modalLocal.close());
+  document.getElementById('buscar-cep-cadastro-local').addEventListener('click', async () => {
+    const campoCep = document.getElementById('cep-cadastro-local');
+    const retorno = document.getElementById('retorno-cep-cadastro-local');
+    const cep = campoCep.value.replace(/\D/g, '');
+    if (cep.length !== 8) { retorno.textContent = 'Digite um CEP com 8 números.'; return; }
+    retorno.textContent = 'Buscando CEP…';
+    try {
+      const resposta = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const dados = await resposta.json();
+      if (!resposta.ok || dados.erro) throw new Error('CEP não localizado');
+      campoCep.value = `${cep.slice(0, 5)}-${cep.slice(5)}`;
+      document.querySelector('#form-cadastro-local [name="logradouro"]').value = dados.logradouro || '';
+      document.querySelector('#form-cadastro-local [name="bairro"]').value = dados.bairro || '';
+      const normalizar = texto => (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR');
+      const respostaCidades = await fetch(`{{ url_for('dados.buscar_cidades_locais') }}?q=${encodeURIComponent(dados.localidade || '')}`);
+      const cidadesCep = (await respostaCidades.json()).resultados || [];
+      const cidade = cidadesCep.find(item => normalizar(item.nome) === normalizar(dados.localidade) && item.uf === dados.uf);
+      if (cidade) {
+        document.querySelector('#form-cadastro-local [name="cidade_id"]').value = cidade.id;
+        document.getElementById('cidade-modal-local').value = cidade.nome;
+      }
+      retorno.textContent = cidade ? 'Cidade, bairro e logradouro preenchidos. Confira o número.' : 'Bairro e logradouro preenchidos; selecione a cidade na busca antes de salvar.';
+    } catch (_erro) { retorno.textContent = 'Não foi possível localizar o CEP. Preencha os dados manualmente.'; }
+  });
+  document.getElementById('form-cadastro-local').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const formularioLocal = evento.currentTarget;
+    const erro = document.getElementById('erro-cadastro-local');
+    erro.hidden = true;
+    try {
+      const resposta = await fetch(`{{ url_for('dados.novo_local_chamado') }}`, {method: 'POST', headers: {'Accept': 'application/json'}, body: new FormData(formularioLocal)});
+      const dados = await resposta.json();
+      if (!resposta.ok || !dados.sucesso) throw new Error(dados.erro || 'Não foi possível salvar o local.');
+      selecionarLocal(dados.local, alvoModalLocal);
+      if (dados.duplicado) document.getElementById(seletoresLocais[alvoModalLocal].mensagem).textContent = dados.mensagem;
+      formularioLocal.reset();
+      modalLocal.close();
+    } catch (falha) { erro.textContent = falha.message; erro.hidden = false; }
+  });
+  if (selectAgenda.value) mostrarDetalhes(true);
+})();
+</script>
+{% endblock %}

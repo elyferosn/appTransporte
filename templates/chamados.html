@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% block titulo %}Chamados{% endblock %}
+{% block conteudo %}
+<div class="page-heading"><div><p class="eyebrow">CADASTROS</p><h1>{{ 'Editar chamado' if registro_edicao else 'Novo chamado' }}</h1><p class="muted">Registre o cidadão, o endereço de destino e o local de saída.</p></div><a class="button" href="{{ url_for('dados.listar', nome_modelo='chamados') }}">Ver chamados cadastrados</a></div>
+<div class="panel"><div class="panel-heading"><h2>{{ 'Editar chamado' if registro_edicao else 'Novo chamado' }}</h2>{% if registro_edicao %}<a class="button small" href="{{ url_for('dados.listar', nome_modelo='chamados') }}">Cancelar edição</a>{% endif %}</div>
+<form method="post" action="{{ url_for('dados.atualizar', nome_modelo='chamados', registro_id=registro_edicao.id) if registro_edicao else url_for('dados.criar', nome_modelo='chamados') }}" class="form-grid" id="form-chamado">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" id="cidadao-id" name="cidadao_id" value="{{ registro_edicao.cidadao_id if registro_edicao else '' }}">
+  <h3 class="booking-subtitle span-2">1. Dados do cidadão</h3>
+  <label>Nome do cidadão *<input id="nome-cidadao-chamado" name="nome_cidadao" maxlength="200" required value="{{ registro_edicao.cidadao.nome if registro_edicao and registro_edicao.cidadao else (registro_edicao.cidadao_nome if registro_edicao else '') }}"></label>
+  <label>Data de nascimento<input id="nascimento-cidadao-chamado" type="date" name="data_nascimento" value="{{ registro_edicao.cidadao.data_nascimento.isoformat() if registro_edicao and registro_edicao.cidadao and registro_edicao.cidadao.data_nascimento else '' }}"></label>
+  <label>Nome da mãe<input id="mae-cidadao-chamado" name="nome_mae" maxlength="200" value="{{ registro_edicao.cidadao.nome_mae if registro_edicao and registro_edicao.cidadao else '' }}"></label>
+  <label>CPF<input id="cpf-cidadao-chamado" name="cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" value="{{ registro_edicao.cidadao.cpf if registro_edicao and registro_edicao.cidadao else '' }}"></label>
+  <label>Cartão SUS (CNS)<input id="cns-cidadao-chamado" name="cns" inputmode="numeric" maxlength="15" placeholder="15 números" value="{{ registro_edicao.cidadao.cns if registro_edicao and registro_edicao.cidadao else '' }}"></label>
+  <div class="span-2"><button type="button" class="button" id="buscar-cidadao-chamado">Buscar cidadão cadastrado</button><p id="resultado-cidadao-chamado" class="muted" aria-live="polite">Pesquise pelo nome completo, nome social, apelido, data de nascimento, CPF, CNS ou nome da mãe.</p><div id="lista-cidadaos-chamado" class="address-results" role="listbox"></div><div id="cidadao-selecionado-card" class="selection-card" {% if not registro_edicao or not registro_edicao.cidadao %}hidden{% endif %}><span id="cidadao-selecionado-texto">{% if registro_edicao and registro_edicao.cidadao %}{{ registro_edicao.cidadao.nome_exibicao }}{% if registro_edicao.cidadao.apelido %} (Apelido: {{ registro_edicao.cidadao.apelido }}){% endif %} · CPF {{ registro_edicao.cidadao.cpf or '—' }} · CNS {{ registro_edicao.cidadao.cns or '—' }}{% endif %}</span><button type="button" class="button danger small" id="remover-cidadao-selecionado">Remover vínculo</button></div></div>
+
+  <h3 class="booking-subtitle span-2">2. Local de saída do cidadão</h3>
+  <input type="hidden" id="saida-endereco-id" name="local_saida_id" value="{{ registro_edicao.local_saida_id if registro_edicao else '' }}">
+  <input type="hidden" id="cidade-id-saida" value="{{ registro_edicao.local_saida.cidade_id if registro_edicao and registro_edicao.local_saida else '' }}"><label class="span-2">Buscar cidade do local de saída *<input id="cidade-busca-saida" type="search" autocomplete="off" placeholder="Digite pelo menos 2 caracteres" value="{{ registro_edicao.local_saida.cidade_registro.nome if registro_edicao and registro_edicao.local_saida and registro_edicao.local_saida.cidade_registro else (registro_edicao.local_saida.cidade if registro_edicao and registro_edicao.local_saida else '') }}"><div id="lista-cidades-saida" class="address-results" role="listbox"></div></label>
+  <label class="span-2">Buscar local de saída por nome, CEP ou logradouro<input id="buscar-endereco-saida" type="search" autocomplete="off" placeholder="Selecione uma cidade antes de pesquisar" value="{{ registro_edicao.local_saida.nome if registro_edicao and registro_edicao.local_saida else '' }}" {% if not registro_edicao or not registro_edicao.local_saida %}disabled{% endif %}><small id="resultado-busca-saida" class="muted" aria-live="polite">Selecione a cidade para habilitar a busca do local.</small><div id="lista-enderecos-saida" class="address-results" role="listbox"></div><button type="button" class="button small" id="abrir-modal-endereco-saida">Cadastrar local</button></label>
+  <div id="endereco-saida-selecionado" class="selection-card span-2" {% if not registro_edicao or not registro_edicao.local_saida %}hidden{% endif %}><span id="endereco-saida-selecionado-texto">{% if registro_edicao and registro_edicao.local_saida %}{{ registro_edicao.local_saida.nome }} — {{ registro_edicao.local_saida.cidade }} · {{ registro_edicao.local_saida.rua }}, {{ registro_edicao.local_saida.numero }}{% endif %}</span><button type="button" class="button danger small remover-endereco-selecionado" data-alvo="saida">Remover</button></div>
+  <div class="form-actions"><button class="button primary">Cadastrar chamado</button></div>
+
+  <h3 class="booking-subtitle span-2">3. Local de destino</h3>
+  <input type="hidden" id="destino-endereco-id" name="local_destino_id" value="{{ registro_edicao.local_destino_id if registro_edicao else '' }}">
+  <input type="hidden" id="cidade-id-destino" value="{{ registro_edicao.local_destino.cidade_id if registro_edicao and registro_edicao.local_destino else '' }}"><label class="span-2">Buscar cidade do destino *<input id="cidade-busca-destino" type="search" autocomplete="off" placeholder="Digite pelo menos 2 caracteres" value="{{ registro_edicao.local_destino.cidade_registro.nome if registro_edicao and registro_edicao.local_destino and registro_edicao.local_destino.cidade_registro else (registro_edicao.local_destino.cidade if registro_edicao and registro_edicao.local_destino else '') }}"><div id="lista-cidades-destino" class="address-results" role="listbox"></div></label>
+  <label class="span-2">Buscar local por nome, CEP ou logradouro<input id="buscar-endereco-destino" type="search" autocomplete="off" placeholder="Selecione uma cidade antes de pesquisar" value="{{ registro_edicao.local_destino.nome if registro_edicao and registro_edicao.local_destino else '' }}" {% if not registro_edicao or not registro_edicao.local_destino %}disabled{% endif %}><small id="resultado-busca-endereco" class="muted" aria-live="polite">Selecione a cidade para habilitar a busca do local.</small><div id="lista-enderecos-destino" class="address-results" role="listbox"></div><button type="button" class="button small" id="abrir-modal-endereco">Cadastrar local</button></label>
+  <p class="booking-manage-link span-2"><a href="{{ url_for('dados.locais_destino') }}" target="_blank" rel="noopener">Listar e editar locais cadastrados</a></p>
+  <div id="endereco-destino-selecionado" class="selection-card span-2" {% if not registro_edicao or not registro_edicao.local_destino %}hidden{% endif %}><span id="endereco-destino-selecionado-texto">{% if registro_edicao and registro_edicao.local_destino %}{{ registro_edicao.local_destino.nome }} — {{ registro_edicao.local_destino.cidade }}{% if registro_edicao.local_destino.cidade_registro and registro_edicao.local_destino.cidade_registro.uf %} - {{ registro_edicao.local_destino.cidade_registro.uf }}{% endif %} · {{ registro_edicao.local_destino.rua }}, {{ registro_edicao.local_destino.numero }}{% endif %}</span><button type="button" class="button danger small remover-endereco-selecionado" data-alvo="destino">Remover</button></div>
+
+
+
+</form></div>
+
+
+<dialog id="modal-novo-endereco" class="address-dialog">
+  <form id="form-novo-endereco" class="form-grid">
+  <div class="panel-heading span-2"><h2 id="titulo-modal-endereco">Novo local</h2><button type="button" class="button small" id="fechar-modal-endereco">Fechar</button></div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Nome do local *<input name="nome_local" maxlength="150" required></label>
+    <input type="hidden" name="cidade_id" required><label>Cidade selecionada *<input id="cidade-modal-endereco" readonly required placeholder="Selecione a cidade na busca"></label>
+    <label>CEP<input id="cep-novo-endereco" name="cep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000"><button type="button" class="button small" id="buscar-cep-novo-endereco">Buscar CEP</button><small id="retorno-cep-novo-endereco" class="muted" aria-live="polite">A consulta preenche cidade, bairro e logradouro.</small></label>
+    <label>Bairro *<input name="bairro" maxlength="150" required></label>
+    <label>Logradouro *<input name="logradouro" maxlength="200" required></label>
+    <label>Número *<input name="numero" maxlength="30" required></label>
+    <label class="span-2">Referência<input name="referencia" maxlength="200"></label>
+    <p id="erro-novo-endereco" class="alert alert-erro span-2" hidden></p>
+    <div class="form-actions"><button class="button primary">Salvar e selecionar local</button></div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const cpf = document.getElementById('cpf-cidadao-chamado');
+  const cns = document.getElementById('cns-cidadao-chamado');
+  const pessoaId = document.getElementById('cidadao-id');
+  const aviso = document.getElementById('resultado-cidadao-chamado');
+  const listaCidadaos = document.getElementById('lista-cidadaos-chamado');
+  const buscar = async () => {
+    const cpfNum = cpf.value.replace(/\D/g, '');
+    const cnsNum = cns.value.replace(/\D/g, '');
+    const nome = document.getElementById('nome-cidadao-chamado').value.trim();
+    const nascimento = document.getElementById('nascimento-cidadao-chamado').value;
+    const mae = document.getElementById('mae-cidadao-chamado').value.trim();
+    listaCidadaos.replaceChildren();
+    if (!cpfNum && !cnsNum && !nome && !nascimento && !mae) {
+      aviso.textContent = 'Informe ao menos um dado para pesquisar.';
+      return;
+    }
+    if ((cpfNum && cpfNum.length !== 11) || (cnsNum && cnsNum.length !== 15)) {
+      aviso.textContent = 'CPF precisa ter 11 números e CNS precisa ter 15 números.';
+      return;
+    }
+    const params = new URLSearchParams();
+    if (cpfNum) params.set('cpf', cpfNum);
+    if (cnsNum) params.set('cns', cnsNum);
+    if (nome) params.set('nome', nome);
+    if (nascimento) params.set('data_nascimento', nascimento);
+    if (mae) params.set('nome_mae', mae);
+    try {
+      const response = await fetch(`{{ url_for('dados.buscar_cidadao_chamado') }}?${params}`, {headers: {'Accept': 'application/json'}});
+      const dados = await response.json();
+      if (!response.ok) throw new Error(dados.erro || 'Não foi possível pesquisar cidadãos.');
+      if (!dados.resultados.length) {
+        pessoaId.value = '';
+        aviso.textContent = 'Cidadão não encontrado. O chamado ficará pendente; nenhum cidadão será criado no cadastro.';
+        return;
+      }
+      aviso.textContent = `${dados.resultados.length} cidadão(s) encontrado(s). Selecione um para preencher os dados.`;
+      dados.resultados.forEach(pessoa => {
+        const botao = document.createElement('button');
+        botao.type = 'button'; botao.className = 'address-result'; botao.setAttribute('role', 'option');
+        botao.textContent = `${pessoa.nome_exibicao || pessoa.nome}${pessoa.apelido ? ' \u00b7 Apelido: ' + pessoa.apelido : ''} · Nascimento: ${pessoa.data_nascimento || '—'} · CPF: ${pessoa.cpf || '—'} · CNS: ${pessoa.cns || '—'} · Mãe: ${pessoa.nome_mae || '—'}`;
+        botao.addEventListener('click', () => {
+          pessoaId.value = pessoa.id;
+          cpf.value = pessoa.cpf || '';
+          cns.value = pessoa.cns || '';
+          document.getElementById('nome-cidadao-chamado').value = pessoa.nome || '';
+          document.getElementById('nascimento-cidadao-chamado').value = pessoa.data_nascimento || '';
+          document.getElementById('mae-cidadao-chamado').value = pessoa.nome_mae || '';
+          document.getElementById('cidadao-selecionado-texto').textContent = `${pessoa.nome_exibicao || pessoa.nome}${pessoa.apelido ? ' \u00b7 Apelido: ' + pessoa.apelido : ''} · Nascimento: ${pessoa.data_nascimento || '—'} · CPF: ${pessoa.cpf || '—'} · CNS: ${pessoa.cns || '—'} · Mãe: ${pessoa.nome_mae || '—'}`;
+          document.getElementById('cidadao-selecionado-card').hidden = false;
+          aviso.textContent = `Cidadão selecionado: ${pessoa.nome_exibicao || pessoa.nome}${pessoa.apelido ? ' \u00b7 Apelido: ' + pessoa.apelido : ''}`;
+          listaCidadaos.replaceChildren();
+        });
+        listaCidadaos.append(botao);
+      });
+    } catch (erro) {
+      aviso.textContent = erro.message || 'Não foi possível pesquisar o cidadão.';
+    }
+  };
+  document.getElementById('buscar-cidadao-chamado').addEventListener('click', buscar);
+  ['nome-cidadao-chamado', 'nascimento-cidadao-chamado', 'mae-cidadao-chamado', 'cpf-cidadao-chamado', 'cns-cidadao-chamado'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+    pessoaId.value = '';
+    document.getElementById('cidadao-selecionado-card').hidden = true;
+    aviso.textContent = 'Dados alterados. Pesquise novamente para selecionar um cidadão cadastrado.';
+  }));
+  document.getElementById('remover-cidadao-selecionado').addEventListener('click', () => {
+    pessoaId.value = '';
+    document.getElementById('cidadao-selecionado-card').hidden = true;
+    listaCidadaos.replaceChildren();
+    aviso.textContent = 'Vínculo removido. O nome ficará no chamado até a identificação do cidadão.';
+  });
+  const modalEndereco = document.getElementById('modal-novo-endereco');
+  const enderecoCampos = {
+    destino: {id: 'destino-endereco-id', busca: 'buscar-endereco-destino', cidade: 'cidade-busca-destino', lista: 'lista-enderecos-destino', mensagem: 'resultado-busca-endereco', selecionado: 'endereco-destino-selecionado'},
+    saida: {id: 'saida-endereco-id', busca: 'buscar-endereco-saida', cidade: 'cidade-busca-saida', lista: 'lista-enderecos-saida', mensagem: 'resultado-busca-saida', selecionado: 'endereco-saida-selecionado'}
+  };
+  const idsCidade = {destino: 'cidade-id-destino', saida: 'cidade-id-saida'};
+  Object.entries(enderecoCampos).forEach(([alvo, campos]) => {
+    const buscaCidade = document.getElementById(campos.cidade);
+    const idCidade = document.getElementById(idsCidade[alvo]);
+    const listaCidade = document.getElementById(`lista-cidades-${alvo}`);
+    let temporizadorCidade;
+    const consultarCidade = async termo => {
+      const resposta = await fetch(`{{ url_for('dados.buscar_cidades_locais') }}?q=${encodeURIComponent(termo)}`);
+      return (await resposta.json()).resultados || [];
+    };
+    const escolherCidade = cidade => {
+      buscaCidade.value = cidade.nome;
+      idCidade.value = cidade.id;
+      listaCidade.replaceChildren();
+      buscaCidade.dispatchEvent(new Event('change'));
+    };
+    buscaCidade.addEventListener('input', () => {
+      clearTimeout(temporizadorCidade);
+      idCidade.value = '';
+      listaCidade.replaceChildren();
+      buscaCidade.dispatchEvent(new Event('change'));
+      const termo = buscaCidade.value.trim();
+      if (termo.length < 2) return;
+      temporizadorCidade = setTimeout(async () => {
+        try {
+          const cidades = await consultarCidade(termo);
+          cidades.forEach(cidade => {
+            const botao = document.createElement('button'); botao.type = 'button'; botao.className = 'address-result'; botao.textContent = cidade.uf ? `${cidade.nome} - ${cidade.uf}` : cidade.nome;
+            botao.addEventListener('click', () => escolherCidade(cidade)); listaCidade.append(botao);
+          });
+        } catch (_erro) { listaCidade.replaceChildren(); }
+      }, 250);
+    });
+    if (buscaCidade.value.trim().length >= 2) consultarCidade(buscaCidade.value.trim()).then(cidades => {
+      const encontrada = cidades.find(cidade => cidade.nome.toLocaleLowerCase('pt-BR') === buscaCidade.value.trim().toLocaleLowerCase('pt-BR'));
+      if (!idCidade.value && encontrada) idCidade.value = encontrada.id;
+    }).catch(() => {});
+  });
+  let destinoModal = 'destino';
+  const selecionarEndereco = (endereco, alvo) => {
+    const campos = enderecoCampos[alvo];
+    document.getElementById(campos.cidade).value = endereco.cidade || '';
+    if (endereco.cidade_id) document.getElementById(idsCidade[alvo]).value = endereco.cidade_id;
+    document.getElementById(campos.id).value = endereco.id;
+    document.getElementById(`${campos.selecionado}-texto`).textContent = `${endereco.nome_local} — ${endereco.cidade || ''}${endereco.uf ? ` - ${endereco.uf}` : ''} · ${endereco.logradouro || ''}, ${endereco.numero || ''} · ${endereco.bairro || ''} · ${endereco.cep || 'sem CEP'}`;
+    document.getElementById(campos.selecionado).hidden = false;
+    document.getElementById(campos.mensagem).textContent = `Endereço selecionado: ${endereco.nome_local} — ${endereco.cidade}`;
+    document.getElementById(campos.lista).replaceChildren();
+  };
+  Object.entries(enderecoCampos).forEach(([alvo, campos]) => {
+    const busca = document.getElementById(campos.busca);
+    const cidade = document.getElementById(campos.cidade);
+    const idCidade = document.getElementById(idsCidade[alvo]);
+    const lista = document.getElementById(campos.lista);
+    const mensagem = document.getElementById(campos.mensagem);
+    let timer;
+    cidade.addEventListener('change', () => {
+      document.getElementById(campos.id).value = '';
+      document.getElementById(campos.selecionado).hidden = true;
+      lista.replaceChildren();
+      busca.value = '';
+      busca.disabled = !idCidade.value;
+      mensagem.textContent = idCidade.value ? 'Digite pelo menos 2 caracteres para pesquisar nessa cidade.' : 'Selecione a cidade para habilitar a busca do local.';
+    });
+    busca.addEventListener('input', () => {
+      clearTimeout(timer);
+      document.getElementById(campos.id).value = '';
+      document.getElementById(campos.selecionado).hidden = true;
+      const termo = busca.value.trim();
+      if (!idCidade.value) { lista.replaceChildren(); mensagem.textContent = 'Selecione a cidade antes de pesquisar.'; return; }
+      if (termo.length < 2) { lista.replaceChildren(); mensagem.textContent = 'Digite pelo menos 2 caracteres para pesquisar nessa cidade.'; return; }
+      mensagem.textContent = 'Pesquisando locais na cidade selecionada…';
+      timer = setTimeout(async () => {
+        try {
+          const response = await fetch(`{{ url_for('dados.buscar_local_chamado') }}?q=${encodeURIComponent(termo)}&cidade=${encodeURIComponent(cidade.value)}&cidade_id=${encodeURIComponent(idCidade.value)}`);
+          const dados = await response.json();
+          lista.replaceChildren();
+          if (!dados.resultados.length) { mensagem.textContent = 'Nenhum local encontrado nessa cidade. Use “Cadastrar local”.'; return; }
+          mensagem.textContent = `${dados.resultados.length} local(is) encontrado(s) nessa cidade.`;
+          dados.resultados.forEach(endereco => {
+            const botao = document.createElement('button');
+            botao.type = 'button'; botao.className = 'address-result'; botao.setAttribute('role', 'option');
+            botao.textContent = `${endereco.nome_local} — ${endereco.cidade || ''}${endereco.uf ? ` - ${endereco.uf}` : ''} · ${endereco.logradouro || ''}, ${endereco.numero || ''} · ${endereco.cep || 'sem CEP'}`;
+            botao.addEventListener('click', () => selecionarEndereco(endereco, alvo));
+            lista.append(botao);
+          });
+        } catch (_erro) { mensagem.textContent = 'Não foi possível pesquisar os locais.'; }
+      }, 250);
+    });
+  });
+  document.querySelectorAll('.remover-endereco-selecionado').forEach(botao => botao.addEventListener('click', () => {
+    const campos = enderecoCampos[botao.dataset.alvo];
+    document.getElementById(campos.id).value = '';
+    document.getElementById(campos.busca).value = '';
+    document.getElementById(campos.selecionado).hidden = true;
+    document.getElementById(campos.lista).replaceChildren();
+    document.getElementById(campos.mensagem).textContent = 'Endereço removido da seleção. Pesquise ou cadastre outro.';
+  }));
+  const abrirModalEndereco = alvo => { destinoModal = alvo; const nome = alvo === 'destino' ? 'Novo local de destino' : 'Novo local de saída'; document.getElementById('titulo-modal-endereco').textContent = nome; const cidadeId = document.querySelector('#form-novo-endereco [name="cidade_id"]'); cidadeId.value = document.getElementById(idsCidade[alvo]).value; document.getElementById('cidade-modal-endereco').value = document.getElementById(enderecoCampos[alvo].cidade).value; if (!cidadeId.value) { alert('Pesquise e selecione uma cidade antes de cadastrar o local.'); return; } modalEndereco.showModal(); };
+  document.getElementById('abrir-modal-endereco').addEventListener('click', () => abrirModalEndereco('destino'));
+  document.getElementById('abrir-modal-endereco-saida').addEventListener('click', () => abrirModalEndereco('saida'));
+  document.getElementById('fechar-modal-endereco').addEventListener('click', () => modalEndereco.close());
+  document.getElementById('buscar-cep-novo-endereco').addEventListener('click', async () => {
+    const cepCampo = document.getElementById('cep-novo-endereco');
+    const retorno = document.getElementById('retorno-cep-novo-endereco');
+    const digitos = cepCampo.value.replace(/\D/g, '');
+    if (digitos.length !== 8) { retorno.textContent = 'Digite um CEP com 8 números.'; return; }
+    retorno.textContent = 'Buscando endereço…';
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
+      const dados = await response.json();
+      if (!response.ok || dados.erro) throw new Error('CEP não localizado');
+      cepCampo.value = `${digitos.slice(0, 5)}-${digitos.slice(5)}`;
+      document.querySelector('#form-novo-endereco [name="logradouro"]').value = dados.logradouro || '';
+      document.querySelector('#form-novo-endereco [name="bairro"]').value = dados.bairro || '';
+      const normalizar = (texto) => (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR');
+      const buscaCidades = await fetch(`{{ url_for('dados.buscar_cidades_locais') }}?q=${encodeURIComponent(dados.localidade || '')}`);
+      const cidadesCep = (await buscaCidades.json()).resultados || [];
+      const cidadeCorrespondente = cidadesCep.find(item => normalizar(item.nome) === normalizar(dados.localidade) && item.uf === dados.uf);
+      if (cidadeCorrespondente) {
+        document.querySelector('#form-novo-endereco [name="cidade_id"]').value = cidadeCorrespondente.id;
+        document.getElementById('cidade-modal-endereco').value = cidadeCorrespondente.nome;
+        retorno.textContent = 'Cidade, bairro e logradouro preenchidos. Confira o número e a referência.';
+      } else {
+        retorno.textContent = `Logradouro e bairro preenchidos. A cidade ${dados.localidade || ''} não foi encontrada; selecione-a na busca antes de salvar.`;
+      }
+    } catch (_erro) { retorno.textContent = 'Não foi possível localizar o CEP. Preencha o endereço manualmente.'; }
+  });
+  document.getElementById('form-novo-endereco').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const form = evento.currentTarget;
+    const erro = document.getElementById('erro-novo-endereco');
+    erro.hidden = true;
+    try {
+      const response = await fetch(`{{ url_for('dados.novo_local_chamado') }}`, {method: 'POST', headers: {'Accept': 'application/json'}, body: new FormData(form)});
+      const corpo = await response.text();
+      let dados;
+      try { dados = JSON.parse(corpo); }
+      catch (_erro) { throw new Error(`O servidor retornou uma página inesperada (HTTP ${response.status}). Atualize a tela e tente novamente.`); }
+      if (!response.ok || !dados.sucesso) throw new Error(dados.erro || 'Não foi possível salvar o local.');
+      selecionarEndereco(dados.local, destinoModal);
+      if (dados.duplicado) document.getElementById(enderecoCampos[destinoModal].mensagem).textContent = dados.mensagem;
+      document.getElementById(enderecoCampos[destinoModal].busca).value = dados.local.nome_local;
+      form.reset(); modalEndereco.close();
+    } catch (falha) { erro.textContent = falha.message; erro.hidden = false; }
+  });
+})();
+</script>
+{% endblock %}

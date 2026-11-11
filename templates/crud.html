@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<div class="page-heading"><div><p class="eyebrow">CADASTROS</p><h1>{{ titulo }}</h1><p class="muted">Consulte, cadastre e altere informações.</p></div></div>
+
+{% if nome_modelo == 'cidadaos' %}
+<div class="panel">
+  <div class="panel-heading"><h2>{{ 'Alterar cidadão' if registro else 'Novo cidadão' }}</h2></div>
+  <form method="post" action="{{ url_for('dados.atualizar', nome_modelo=nome_modelo, registro_id=registro.id) if registro else url_for('dados.criar', nome_modelo=nome_modelo) }}" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="id_esus" value="">
+    <label>Nome<input name="nome" maxlength="200" required value="{{ registro.nome if registro else '' }}"></label>
+    <label>CPF<input name="cpf" inputmode="numeric" maxlength="11" placeholder="Somente números" value="{{ registro.cpf if registro else valores_iniciais.get('cpf', '') }}"></label>
+    <label>Cartão SUS (CNS)<input name="cns" inputmode="numeric" maxlength="15" placeholder="Somente números" value="{{ registro.cns if registro else valores_iniciais.get('cns', '') }}"></label>
+    <label>Status<select name="ativo"><option value="1" {% if not registro or registro.ativo %}selected{% endif %}>Ativo</option><option value="0" {% if registro and not registro.ativo %}selected{% endif %}>Inativo</option></select></label>
+    <div class="form-actions"><button class="button primary">{{ 'Salvar alterações' if registro else 'Cadastrar cidadão' }}</button>{% if registro %} <a class="button" href="{{ url_for('dados.listar', nome_modelo=nome_modelo) }}">Cancelar</a>{% endif %}</div>
+  </form>
+</div>
+<div class="panel">
+  <div class="panel-heading"><h2>Buscar cidadão</h2></div>
+  <form method="get" class="form-grid">
+    <label>CPF<input name="cpf" inputmode="numeric" maxlength="11" placeholder="Somente números" value="{{ request.args.get('cpf', '') }}"></label>
+    <label>Cartão SUS (CNS)<input name="cns" inputmode="numeric" maxlength="15" placeholder="Somente números" value="{{ request.args.get('cns', '') }}"></label>
+    <div class="form-actions"><button class="button primary">Buscar</button> <a class="button" href="{{ url_for('dados.listar', nome_modelo=nome_modelo) }}">Limpar busca</a></div>
+  </form>
+</div>
+{% else %}
+<div class="panel"><div class="panel-heading"><h2>Novo registro</h2></div><form method="post" action="{{ url_for('dados.criar', nome_modelo=nome_modelo) }}" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="return_to" value="{{ return_to }}">
+{% for campo in campos %}<label>{{ campo.name|replace('_',' ')|title }}{% if campo.nullable == false and campo.default is none %}<span class="required">*</span>{% endif %}{% if campo.type.python_type.__name__ == 'bool' %}<select name="{{ campo.name }}"><option value="1">Sim</option><option value="0">Não</option></select>{% elif campo.type.python_type.__name__ == 'int' %}<input type="number" name="{{ campo.name }}" value="{{ valores_iniciais.get(campo.name, '') }}" {% if campo.nullable == false and campo.default is none %}required{% endif %}>{% else %}<input name="{{ campo.name }}" value="{{ valores_iniciais.get(campo.name, '') }}" {% if campo.nullable == false and campo.default is none %}required{% endif %} maxlength="{{ campo.type.length or 255 }}">{% endif %}</label>{% endfor %}
+<div class="form-actions"><button class="button primary">Salvar registro</button></div></form></div>
+{% endif %}
+
+<div class="panel"><div class="panel-heading"><h2>Registros</h2><span class="count">{{ registros|length }} itens</span></div><div class="table-wrap"><table><thead><tr>{% for campo in campos if not (nome_modelo == 'cidadaos' and campo.name == 'id_esus') %}<th>{{ 'CNS' if campo.name == 'cns' else campo.name|replace('_',' ')|title }}</th>{% endfor %}<th>Ações</th></tr></thead><tbody>
+{% for item in registros %}<tr>{% for campo in campos if not (nome_modelo == 'cidadaos' and campo.name == 'id_esus') %}<td>{% set valor = item|attr(campo.name) %}{% if campo.type.python_type.__name__ == 'bool' %}<span class="badge {{ 'badge-green' if valor else 'badge-gray' }}">{{ 'Sim' if valor else 'Não' }}</span>{% else %}{{ valor if valor is not none else '—' }}{% endif %}</td>{% endfor %}<td><div class="actions"><a class="button small" href="{{ url_for('dados.listar', nome_modelo=nome_modelo, editar=item.id, cpf=request.args.get('cpf'), cns=request.args.get('cns')) }}">Editar</a><form method="post" action="{{ url_for('dados.excluir', nome_modelo=nome_modelo, registro_id=item.id) }}" onsubmit="return confirm('Excluir este registro?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button danger small">Excluir</button></form></div></td></tr>{% else %}<tr><td colspan="{{ campos|length + 1 }}" class="empty">Nenhum registro cadastrado.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

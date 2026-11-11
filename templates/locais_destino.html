@@ -1,0 +1,85 @@
+{% extends 'base.html' %}<!-- Cadastro reutilizável de locais de saída e destino. -->
+{% block titulo %}Locais de destino{% endblock %}
+{% block conteudo %}
+<div class="page-heading"><div><p class="eyebrow">CADASTROS</p><h1>Locais</h1><p class="muted">Cadastre cada local uma vez e reutilize-o como saída ou destino em chamados e agendamentos.</p></div>{% if pode_acessar_rota(usuario_logado, 'agendamentos') %}<a class="button" href="{{ url_for('dados.listar', nome_modelo='agendamentos') }}">Voltar aos agendamentos</a>{% elif pode_acessar_rota(usuario_logado, 'chamados') %}<a class="button" href="{{ url_for('dados.listar', nome_modelo='chamados') }}">Voltar aos chamados</a>{% endif %}</div>
+<div class="panel"><div class="panel-heading"><h2>{{ 'Editar local' if local_edicao else 'Cadastrar local' }}</h2>{% if local_edicao %}<a class="button small" href="{{ url_for('dados.locais_destino') }}">Cancelar edição</a>{% endif %}</div>
+<form method="post" class="form-grid" action="{{ url_for('dados.editar_local_destino', local_id=local_edicao.id) if local_edicao else url_for('dados.locais_destino') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Nome do local<input name="nome" maxlength="150" required placeholder="Ex.: HC ou AME" value="{{ local_edicao.nome if local_edicao else '' }}"></label>
+  <label>CEP<input id="cep-local" name="cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="{{ local_edicao.cep if local_edicao and local_edicao.cep else '' }}"><button type="button" id="buscar-cep-local" class="button small">Buscar endereço pelo CEP</button><small id="retorno-cep-local" class="muted">A consulta preenche cidade, rua e bairro.</small></label>
+  <input id="cidade-id-local" type="hidden" name="cidade_id" value="{{ local_edicao.cidade_id if local_edicao and local_edicao.cidade_id else '' }}" required>
+  <label>Cidade *<div class="input-with-button"><input id="cidade-local" readonly required placeholder="Busque e selecione uma cidade" value="{{ local_edicao.cidade_registro.nome if local_edicao and local_edicao.cidade_registro else (local_edicao.cidade if local_edicao else '') }}"><button type="button" id="abrir-modal-cidade" class="button small">Buscar cidade</button></div></label>
+  <label>Rua / logradouro<input id="rua-local" name="rua" maxlength="200" required value="{{ local_edicao.rua if local_edicao else '' }}"></label>
+  <label>Bairro<input id="bairro-local" name="bairro" maxlength="150" required value="{{ local_edicao.bairro if local_edicao else '' }}"></label>
+  <label>Número<input name="numero" maxlength="30" required value="{{ local_edicao.numero if local_edicao else '' }}"></label>
+  <label>Referência<input name="referencia" maxlength="200" value="{{ local_edicao.referencia if local_edicao else '' }}"></label>
+  {% if local_edicao %}<label>Situação<select name="ativo"><option value="1" {% if local_edicao.ativo %}selected{% endif %}>Ativo</option><option value="0" {% if not local_edicao.ativo %}selected{% endif %}>Inativo</option></select></label>{% endif %}
+  <div class="form-actions"><button class="button primary">{{ 'Salvar alterações' if local_edicao else 'Cadastrar local' }}</button></div>
+</form></div>
+<dialog id="modal-busca-cidade" class="address-dialog"><div class="form-grid"><div class="panel-heading span-2"><h2>Selecionar cidade</h2><button type="button" class="button small" id="fechar-modal-cidade">Fechar</button></div><label class="span-2">Buscar cidade cadastrada<input id="busca-cidade-modal" type="search" autocomplete="off" placeholder="Digite pelo menos 2 caracteres"></label><small id="retorno-busca-cidade" class="muted span-2">Digite o nome da cidade para buscar.</small><div id="resultados-cidade-modal" class="address-results span-2" role="listbox"></div></div></dialog>
+<div class="panel"><div class="panel-heading"><h2>Locais cadastrados</h2><span class="count">{{ locais|length }}</span></div><div class="table-wrap"><table><thead><tr><th>Local</th><th>Endereço</th><th>CEP</th><th>Situação</th><th>Ações</th></tr></thead><tbody>{% for local in locais %}<tr><td>{{ local.nome }}</td><td>{{ [local.rua, local.numero, local.bairro, local.cidade_registro.nome if local.cidade_registro else local.cidade, local.cidade_registro.uf if local.cidade_registro else none]|select|join(', ') }}</td><td>{{ local.cep or '—' }}</td><td><span class="badge {{ 'badge-green' if local.ativo else 'badge-gray' }}">{{ 'Ativo' if local.ativo else 'Inativo' }}</span></td><td><div class="actions"><a class="button small" href="{{ url_for('dados.editar_local_destino', local_id=local.id) }}">Editar</a><form method="post" action="{{ url_for('dados.excluir_local_destino', local_id=local.id) }}" onsubmit="return confirm('Excluir ou desativar este local?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button danger small">Excluir</button></form></div></td></tr>{% else %}<tr><td colspan="5" class="empty">Nenhum local de destino cadastrado.</td></tr>{% endfor %}</tbody></table></div></div>
+<script>
+// Completa o endereço do local pelo CEP quando o serviço de consulta responder.
+(() => {
+  const cep = document.getElementById('cep-local');
+  const botao = document.getElementById('buscar-cep-local');
+  const mensagem = document.getElementById('retorno-cep-local');
+  if (!cep || !botao || !mensagem) return;
+  botao.addEventListener('click', async () => {
+    const digitos = cep.value.replace(/\D/g, '');
+    if (digitos.length !== 8) {
+      mensagem.textContent = 'Digite um CEP com 8 números.';
+      return;
+    }
+    mensagem.textContent = 'Buscando endereço…';
+    try {
+      const resposta = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
+      const dados = await resposta.json();
+      if (!resposta.ok || dados.erro) throw new Error('CEP não localizado');
+      const consultaCidades = await fetch(`{{ url_for('dados.buscar_cidades_locais') }}?q=${encodeURIComponent(dados.localidade || '')}`);
+      const cidades = (await consultaCidades.json()).resultados || [];
+      const normalizar = texto => (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR');
+      const cidade = cidades.find(item => normalizar(item.nome) === normalizar(dados.localidade) && item.uf === dados.uf);
+      document.getElementById('cidade-local').value = cidade ? cidade.nome : '';
+      document.getElementById('cidade-id-local').value = cidade ? cidade.id : '';
+      document.getElementById('rua-local').value = dados.logradouro || '';
+      document.getElementById('bairro-local').value = dados.bairro || '';
+      mensagem.textContent = `${cidade ? 'Cidade, ' : 'Cidade não encontrada na tabela. Selecione-a pela busca. ' }rua e bairro preenchidos. Confira o número e a referência.`;
+    } catch (_erro) {
+      mensagem.textContent = 'Não foi possível localizar o CEP. Preencha o endereço manualmente.';
+    }
+  });
+})();
+(() => {
+  const modal = document.getElementById('modal-busca-cidade');
+  const busca = document.getElementById('busca-cidade-modal');
+  const resultados = document.getElementById('resultados-cidade-modal');
+  const retorno = document.getElementById('retorno-busca-cidade');
+  const campoId = document.getElementById('cidade-id-local');
+  const campoCidade = document.getElementById('cidade-local');
+  document.getElementById('abrir-modal-cidade').addEventListener('click', () => {
+    busca.value = ''; resultados.replaceChildren(); retorno.textContent = 'Digite pelo menos 2 caracteres para pesquisar.'; modal.showModal(); busca.focus();
+  });
+  document.getElementById('fechar-modal-cidade').addEventListener('click', () => modal.close());
+  let temporizador;
+  busca.addEventListener('input', () => {
+    clearTimeout(temporizador); resultados.replaceChildren();
+    const termo = busca.value.trim();
+    if (termo.length < 2) { retorno.textContent = 'Digite pelo menos 2 caracteres para pesquisar.'; return; }
+    retorno.textContent = 'Buscando cidades…';
+    temporizador = setTimeout(async () => {
+      try {
+        const resposta = await fetch(`{{ url_for('dados.buscar_cidades_locais') }}?q=${encodeURIComponent(termo)}`);
+        const cidades = (await resposta.json()).resultados || [];
+        retorno.textContent = cidades.length ? `${cidades.length} cidade(s) encontrada(s).` : 'Nenhuma cidade encontrada.';
+        cidades.forEach(cidade => {
+          const botao = document.createElement('button'); botao.type = 'button'; botao.className = 'address-result'; botao.setAttribute('role', 'option'); botao.textContent = cidade.uf ? `${cidade.nome} - ${cidade.uf}` : cidade.nome;
+          botao.addEventListener('click', () => { campoId.value = cidade.id; campoCidade.value = cidade.nome; modal.close(); });
+          resultados.append(botao);
+        });
+      } catch (_erro) { retorno.textContent = 'Não foi possível buscar cidades.'; }
+    }, 250);
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}<!-- Cadastro de viagens e consulta de vagas disponíveis. -->{% block titulo %}Agendas{% endblock %}{% block conteudo %}
+<div class="page-heading"><div><p class="eyebrow">CADASTROS</p><h1>Agendas de transporte</h1><p class="muted">Defina data, horário, motorista, veículo e capacidade de cada viagem.</p></div></div>
+{% if not motoristas or not frotas %}<div class="alert alert-erro">Para cadastrar uma agenda, primeiro cadastre um motorista ativo e uma frota ativa com lugares informados. {% if not motoristas and pode_acessar_rota(usuario_logado, 'motoristas') %}<a href="{{ url_for('dados.listar', nome_modelo='motoristas') }}">Abrir motoristas</a>{% endif %} {% if not frotas and pode_acessar_rota(usuario_logado, 'frotas') %}<a href="{{ url_for('dados.listar', nome_modelo='frotas') }}">Abrir frotas</a>{% endif %}</div>{% endif %}
+<div class="panel" id="form-agenda"><div class="panel-heading"><h2>{{ 'Editar agenda' if registro_edicao else 'Nova agenda' }}</h2>{% if registro_edicao %}<a class="button small" href="{{ url_for('dados.listar', nome_modelo='agendas') }}">Cancelar edição</a>{% endif %}</div>
+<form method="post" action="{{ url_for('dados.atualizar', nome_modelo='agendas', registro_id=registro_edicao.id) if registro_edicao else url_for('dados.criar', nome_modelo='agendas') }}" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Data e hora<input type="datetime-local" name="data_hora" required value="{{ registro_edicao.data_hora.strftime('%Y-%m-%dT%H:%M') if registro_edicao and registro_edicao.data_hora else '' }}"></label>
+<label>Motorista<select name="motorista_id" required><option value="">Selecione</option>{% for motorista in motoristas %}<option value="{{ motorista.id }}" {% if registro_edicao and registro_edicao.motorista_id == motorista.id %}selected{% endif %}>{{ motorista.nome }} (crachá {{ motorista.cracha }})</option>{% endfor %}</select></label>
+<label>Frota<select name="frota_id" required><option value="">Selecione</option>{% for frota in frotas %}<option value="{{ frota.id }}" {% if registro_edicao and registro_edicao.frota_id == frota.id %}selected{% endif %}>{{ frota.frota }} — {{ frota.marca or '' }} {{ frota.modelo or '' }} ({{ frota.lugares }} lugares)</option>{% endfor %}</select></label>
+<label>Quantidade de vagas<input type="number" name="quantidade_vagas" min="1" required value="{{ registro_edicao.quantidade_vagas if registro_edicao else '' }}"><small class="muted">Não pode exceder os lugares disponíveis na frota.</small></label>
+<input id="cidade-destino-id" type="hidden" name="cidade_destino_id" value="{{ registro_edicao.cidade_destino_id if registro_edicao else '' }}" required><label>Cidade *<div class="input-with-button"><input id="cidade-destino-nome" readonly required placeholder="Busque e selecione um município" value="{{ registro_edicao.destino.nome ~ (' - ' ~ registro_edicao.destino.uf if registro_edicao and registro_edicao.destino and registro_edicao.destino.uf else '') if registro_edicao and registro_edicao.destino else '' }}"><button type="button" id="abrir-busca-cidade-agenda" class="button small">Buscar cidade</button></div></label>
+<label>Informação adicional<input name="informacao" maxlength="500" placeholder="Observações da viagem" value="{{ (registro_edicao.informacao or '') if registro_edicao else '' }}"></label>
+<div class="form-actions"><button class="button primary" {% if not motoristas or not frotas or not cidades_disponiveis %}disabled{% endif %}>{{ 'Salvar alterações' if registro_edicao else 'Criar agenda' }}</button></div></form>{% if not cidades_disponiveis %}<p class="muted">Nenhuma cidade está disponível no banco de dados.</p>{% endif %}</div>
+<dialog id="modal-busca-cidade-agenda" class="address-dialog"><div class="form-grid"><div class="panel-heading span-2"><h2>Selecionar município</h2><button type="button" class="button small" id="fechar-busca-cidade-agenda">Fechar</button></div><label class="span-2">Buscar cidade<input id="termo-cidade-agenda" type="search" autocomplete="off" placeholder="Digite pelo menos 2 caracteres"></label><small id="mensagem-cidade-agenda" class="muted span-2">Digite o nome do município.</small><div id="resultados-cidade-agenda" class="address-results span-2" role="listbox"></div></div></dialog>
+<div class="panel"><div class="panel-heading"><h2>Viagens</h2><span class="count">{{ registros|length }} agendas</span></div><div class="table-wrap"><table><thead><tr><th>Data e hora</th><th>Cidade</th><th>Motorista</th><th>Frota</th><th>Capacidade</th><th>Disponíveis</th><th>Informação</th><th>Ações</th></tr></thead><tbody>{% for agenda in registros %}<tr><td>{{ agenda.data_hora.strftime('%d/%m/%Y %H:%M') if agenda.data_hora else '—' }}</td><td>{{ agenda.destino.nome ~ (' - ' ~ agenda.destino.uf if agenda.destino.uf else '') if agenda.destino else (agenda.cidade or '—') }}</td><td>{{ agenda.motorista.nome if agenda.motorista else '—' }}</td><td>{{ agenda.frota.frota if agenda.frota else '—' }}</td><td>{{ agenda.quantidade_vagas or 0 }}</td><td><span class="badge {{ 'badge-green' if agenda.vagas_disponiveis else 'badge-gray' }}">{{ agenda.vagas_disponiveis }}</span></td><td>{{ agenda.informacao or '—' }}</td><td><div class="actions"><a class="button small" href="{{ url_for('dados.listar', nome_modelo='agendas', editar=agenda.id) }}">Editar</a><form method="post" action="{{ url_for('dados.excluir', nome_modelo='agendas', registro_id=agenda.id) }}" onsubmit="return confirm('Excluir esta agenda?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button danger small">Excluir</button></form></div></td></tr>{% else %}<tr><td colspan="8" class="empty">Nenhuma agenda cadastrada.</td></tr>{% endfor %}</tbody></table></div></div>
+<script>
+(() => {
+  const modal = document.getElementById('modal-busca-cidade-agenda');
+  const busca = document.getElementById('termo-cidade-agenda');
+  const resultados = document.getElementById('resultados-cidade-agenda');
+  const mensagem = document.getElementById('mensagem-cidade-agenda');
+  const id = document.getElementById('cidade-destino-id');
+  const nome = document.getElementById('cidade-destino-nome');
+  document.getElementById('abrir-busca-cidade-agenda').addEventListener('click', () => { busca.value = ''; resultados.replaceChildren(); modal.showModal(); busca.focus(); });
+  document.getElementById('fechar-busca-cidade-agenda').addEventListener('click', () => modal.close());
+  let timer;
+  busca.addEventListener('input', () => {
+    clearTimeout(timer); resultados.replaceChildren(); id.value = ''; nome.value = '';
+    const termo = busca.value.trim();
+    if (termo.length < 2) { mensagem.textContent = 'Digite pelo menos 2 caracteres.'; return; }
+    mensagem.textContent = 'Buscando municípios…';
+    timer = setTimeout(async () => {
+      try {
+        const resposta = await fetch(`{{ url_for('dados.buscar_cidades_locais') }}?q=${encodeURIComponent(termo)}`);
+        const cidades = (await resposta.json()).resultados || [];
+        mensagem.textContent = cidades.length ? `${cidades.length} município(s) encontrado(s).` : 'Nenhum município encontrado.';
+        cidades.forEach(cidade => {
+          const botao = document.createElement('button'); botao.type = 'button'; botao.className = 'address-result'; botao.setAttribute('role', 'option');
+          botao.textContent = cidade.uf ? `${cidade.nome} - ${cidade.uf}` : cidade.nome;
+          botao.addEventListener('click', () => { id.value = cidade.id; nome.value = botao.textContent; modal.close(); });
+          resultados.append(botao);
+        });
+      } catch (_erro) { mensagem.textContent = 'Não foi possível buscar municípios.'; }
+    }, 250);
+  });
+})();
+</script>
+{% endblock %}

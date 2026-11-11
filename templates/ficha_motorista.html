@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ficha do motorista — {{ ficha.titulo }} nº {{ ficha.numero }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='ficha_motorista.css') }}">
+</head>
+<body>
+  <nav class="ferramentas" aria-label="Impressão">
+    <button type="button" onclick="window.print()">Imprimir ficha</button>
+    <a href="{{ url_for('dados.listar', nome_modelo=nome_modelo) }}">Voltar à listagem</a>
+  </nav>
+  <main class="ficha">
+    <header><p class="identificacao">Informações para o motorista</p><h1>Ficha de {{ ficha.titulo|lower }}</h1><p class="numero">{{ ficha.titulo }} nº {{ ficha.numero }}</p></header>
+    {% if ficha.cancelado %}<p class="cancelado">AGENDAMENTO CANCELADO</p>{% endif %}
+    <section><h2>Pessoa a transportar</h2><p class="passageiro">{{ ficha.passageiro or 'Nome não informado' }}</p>
+      {% if ficha.apelido %}<p><strong>Apelido:</strong> {{ ficha.apelido }}</p>{% endif %}
+      {% if ficha.telefone %}<p><strong>Telefone de contato:</strong> {{ ficha.telefone }}</p>{% endif %}
+    </section>
+    {% if ficha.saida_em %}<section class="horario"><h2>Saída da viagem (horário da agenda)</h2><p>{{ ficha.saida_em.strftime('%d/%m/%Y às %H:%M') }}</p></section>{% endif %}
+    {% macro endereco(dados) %}
+      {% if dados.nome %}<p class="local">{{ dados.nome }}</p>{% endif %}
+      {% if dados.rua or dados.numero %}<p class="endereco">{{ dados.rua or '' }}{% if dados.rua and dados.numero %}, {% endif %}{{ dados.numero or '' }}</p>{% endif %}
+      {% if dados.endereco_livre %}<p class="endereco">{{ dados.endereco_livre }}</p>{% endif %}
+      {% if dados.bairro %}<p>{{ dados.bairro }}</p>{% endif %}
+      {% if dados.cidade or dados.uf %}<p>{{ dados.cidade or '' }}{% if dados.cidade and dados.uf %} — {% endif %}{{ dados.uf or '' }}</p>{% endif %}
+      {% if dados.cep %}<p>CEP {{ dados.cep }}</p>{% endif %}
+      {% if dados.referencia %}<p class="referencia"><strong>Referência:</strong> {{ dados.referencia }}</p>{% endif %}
+    {% endmacro %}
+    <section class="bloco-endereco"><h2>Embarque</h2>{{ endereco(ficha.saida) }}</section>
+    <section class="bloco-endereco"><h2>Destino</h2>{{ endereco(ficha.destino) }}</section>
+  </main>
+</body>
+</html>

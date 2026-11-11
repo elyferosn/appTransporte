@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow">CADASTROS</p>
+        <h1>Motoristas</h1>
+        <p class="muted">Cadastre e mantenha os motoristas habilitados.</p>
+    </div>
+</div>
+<div class="panel">
+    <div class="panel-heading">
+        <h2>{{ 'Alterar motorista' if registro else 'Novo motorista' }}</h2>
+    </div>
+    <form method="post"
+        action="{{ url_for('dados.atualizar', nome_modelo=nome_modelo, registro_id=registro.id) if registro else url_for('dados.criar', nome_modelo=nome_modelo) }}"
+        class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="required-field">Número do crachá *<input type="number" name="cracha" required
+                value="{{ registro.cracha if registro else '' }}"></label>
+        <label>Nome<input name="nome" maxlength="200" value="{{ registro.nome if registro else '' }}"></label>
+        <label>Status<select name="ativo">
+                <option value="1" {% if not registro or registro.ativo %}selected{% endif %}>Ativo</option>
+                <option value="0" {% if registro and not registro.ativo %}selected{% endif %}>Inativo</option>
+            </select></label>
+        <div class="form-actions"><button class="button primary">{{ 'Salvar alterações' if registro else 'Cadastrar
+                motorista' }}</button>{% if registro %} <a class="button"
+                href="{{ url_for('dados.listar', nome_modelo=nome_modelo) }}">Cancelar</a>{% endif %}</div>
+    </form>
+</div>
+<div class="panel">
+    <div class="panel-heading">
+        <h2>Motoristas cadastrados</h2><span class="count">{{ registros|length }} itens</span>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Crachá</th>
+                    <th>Nome</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in registros %}<tr>
+                    <td>{{ item.cracha }}</td>
+                    <td>{{ item.nome or '—' }}</td>
+                    <td><span class="badge {{ 'badge-green' if item.ativo else 'badge-gray' }}">{{ 'Ativo' if item.ativo
+                            else 'Inativo' }}</span></td>
+                    <td>
+                        <div class="actions"><a class="button small"
+                                href="{{ url_for('dados.listar', nome_modelo=nome_modelo, editar=item.id) }}">Editar</a>
+                            <form method="post"
+                                action="{{ url_for('dados.excluir', nome_modelo=nome_modelo, registro_id=item.id) }}"
+                                onsubmit="return confirm('Excluir este motorista?')"><input type="hidden"
+                                    name="csrf_token" value="{{ csrf_token() }}"><button
+                                    class="button danger small">Excluir</button></form>
+                        </div>
+                    </td>
+                </tr>{% else %}<tr>
+                    <td colspan="4" class="empty">Nenhum motorista cadastrado.</td>
+                </tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

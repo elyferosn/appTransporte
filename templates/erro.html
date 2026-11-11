@@ -1,0 +1,1 @@
+{% extends 'base.html' %}<!-- Mensagem de erro apresentada para a situação informada pela rota. -->{% block titulo %}Erro {{ codigo }}{% endblock %}{% block conteudo %}<div class="error-page"><span>{{ codigo }}</span><h1>{{ mensagem }}</h1><a class="button primary" href="{{ url_for('main.inicio') if usuario_logado else url_for('auth.login') }}">Voltar</a></div>{% endblock %}

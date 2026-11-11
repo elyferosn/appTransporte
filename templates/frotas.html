@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<div class="page-heading"><div><p class="eyebrow">CADASTROS</p><h1>Frotas</h1><p class="muted">Cadastre e mantenha os veículos da frota municipal.</p></div></div>
+<div class="panel"><div class="panel-heading"><h2>{{ 'Alterar veículo' if registro else 'Novo veículo' }}</h2></div>
+<form method="post" action="{{ url_for('dados.atualizar', nome_modelo=nome_modelo, registro_id=registro.id) if registro else url_for('dados.criar', nome_modelo=nome_modelo) }}" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label class="required-field">Número da frota *<input type="number" name="frota" required value="{{ registro.frota if registro else '' }}"></label>
+<label class="required-field">Marca *<input name="marca" maxlength="200" required value="{{ registro.marca if registro else '' }}"></label>
+<label class="required-field">Modelo *<input name="modelo" maxlength="200" required value="{{ registro.modelo if registro else '' }}"></label>
+<label class="required-field">Quantidade de lugares *<input type="number" name="lugares" min="0" required value="{{ registro.lugares if registro and registro.lugares is not none else 0 }}"></label>
+<label>Status<select name="ativo"><option value="1" {% if not registro or registro.ativo %}selected{% endif %}>Ativo</option><option value="0" {% if registro and not registro.ativo %}selected{% endif %}>Inativo</option></select></label>
+<div class="form-actions"><button class="button primary">{{ 'Salvar alterações' if registro else 'Cadastrar veículo' }}</button>{% if registro %} <a class="button" href="{{ url_for('dados.listar', nome_modelo=nome_modelo) }}">Cancelar</a>{% endif %}</div></form></div>
+<div class="panel"><div class="panel-heading"><h2>Veículos cadastrados</h2><span class="count">{{ registros|length }} itens</span></div><div class="table-wrap"><table><thead><tr><th>Frota</th><th>Marca</th><th>Modelo</th><th>Lugares</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+{% for item in registros %}<tr><td>{{ item.frota }}</td><td>{{ item.marca or '—' }}</td><td>{{ item.modelo or '—' }}</td><td>{{ item.lugares if item.lugares is not none else '—' }}</td><td><span class="badge {{ 'badge-green' if item.ativo else 'badge-gray' }}">{{ 'Ativo' if item.ativo else 'Inativo' }}</span></td><td><div class="actions"><a class="button small" href="{{ url_for('dados.listar', nome_modelo=nome_modelo, editar=item.id) }}">Editar</a><form method="post" action="{{ url_for('dados.excluir', nome_modelo=nome_modelo, registro_id=item.id) }}" onsubmit="return confirm('Excluir este veículo?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button danger small">Excluir</button></form></div></td></tr>{% else %}<tr><td colspan="6" class="empty">Nenhum veículo cadastrado.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

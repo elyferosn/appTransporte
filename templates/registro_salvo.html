@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ titulo }} salvo{% endblock %}
+{% block conteudo %}
+<div class="panel">
+  <h1>{{ titulo }} nº {{ registro_id }} salvo</h1>
+  <p>A ficha do motorista está disponível. Abra a ficha e escolha quando imprimir pelo navegador.</p>
+  <div class="actions">
+    <a class="button primary" href="{{ url_for('dados.imprimir_ficha', nome_modelo=nome_modelo, registro_id=registro_id) }}" target="_blank" rel="noopener noreferrer">Imprimir ficha</a>
+    <a class="button" href="{{ url_for('dados.listar', nome_modelo=nome_modelo) }}">Ver {{ nome_modelo }}</a>
+    <a class="button" href="{{ url_for('dados.listar', nome_modelo=nome_modelo, novo=1) }}">{{ 'Novo chamado' if nome_modelo == 'chamados' else 'Novo agendamento' }}</a>
+  </div>
+</div>
+{% endblock %}

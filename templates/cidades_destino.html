@@ -1,0 +1,13 @@
+{% extends 'base.html' %}<!-- Cadastro e manutenção dos destinos usados nas agendas. -->
+{% block titulo %}Cidades destino{% endblock %}
+{% block conteudo %}
+<div class="page-heading"><div><p class="eyebrow">CADASTROS</p><h1>Cidades e locais de destino</h1><p class="muted">Mantenha os destinos disponíveis para seleção nas agendas de transporte.</p></div><a class="button" href="{{ url_for('dados.listar', nome_modelo='agendas') }}">Voltar às agendas</a></div>
+<div class="panel"><div class="panel-heading"><h2>{{ 'Editar destino' if cidade_edicao else 'Novo destino' }}</h2>{% if cidade_edicao %}<a class="button small" href="{{ url_for('dados.cidades_destino') }}">Cancelar edição</a>{% endif %}</div>
+<form method="post" action="{{ url_for('dados.editar_cidade_destino', cidade_id=cidade_edicao.id) if cidade_edicao else url_for('dados.cidades_destino') }}" class="form-grid">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Nome da cidade ou local<input name="nome" maxlength="150" required autofocus placeholder="Ex.: HC" value="{{ cidade_edicao.nome if cidade_edicao else '' }}"></label>
+{% if cidade_edicao %}<label>Status<select name="ativo"><option value="1" {% if cidade_edicao.ativo %}selected{% endif %}>Ativo</option><option value="0" {% if not cidade_edicao.ativo %}selected{% endif %}>Inativo</option></select></label>{% endif %}
+<div class="form-actions"><button class="button primary">{{ 'Salvar alterações' if cidade_edicao else 'Cadastrar destino' }}</button></div>
+</form></div>
+<div class="panel"><div class="panel-heading"><h2>Destinos cadastrados</h2><span class="count">{{ cidades|length }}</span></div><div class="table-wrap"><table><thead><tr><th>Destino</th><th>Status</th><th>Ações</th></tr></thead><tbody>{% for cidade in cidades %}<tr><td>{{ cidade.nome }}</td><td><span class="badge {{ 'badge-green' if cidade.ativo else 'badge-gray' }}">{{ 'Ativo' if cidade.ativo else 'Inativo' }}</span></td><td><div class="actions"><a class="button small" href="{{ url_for('dados.editar_cidade_destino', cidade_id=cidade.id) }}">Editar</a><form method="post" action="{{ url_for('dados.excluir_cidade_destino', cidade_id=cidade.id) }}" onsubmit="return confirm('Excluir ou desativar este destino?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button danger small">Excluir</button></form></div></td></tr>{% else %}<tr><td colspan="3" class="empty">Nenhum destino cadastrado.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

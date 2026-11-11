@@ -1,0 +1,3 @@
+{% extends 'base.html' %}<!-- Orientação quando nenhum módulo está liberado para a conta. -->{% block titulo %}Sem módulos liberados{% endblock %}{% block conteudo %}
+<div class="error-page"><span>!</span><h1>Seu perfil ainda não tem cadastros liberados.</h1><p class="muted">Peça ao administrador para ajustar os acessos do seu perfil.</p><form method="post" action="{{ url_for('auth.sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button primary">Sair</button></form></div>
+{% endblock %}

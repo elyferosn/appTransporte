@@ -1,0 +1,17 @@
+{% extends 'base.html' %}<!-- Resumo inicial disponível para a conta administradora. -->{% block titulo %}Painel{%
+endblock %}{% block conteudo %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow">VISÃO GERAL</p>
+        <h1>Painel</h1>
+        <p class="muted">Bem-vindo, {{ usuario_logado.nome }}. Acesse os módulos do sistema.</p>
+    </div>
+</div>
+<div class="card-grid">{% for chave, rotulo, descricao, icone in [('frotas','Frotas','Veículos da frota
+    municipal','▰'),('motoristas','Motoristas','Cadastro de motoristas','♙'),('cidadaos','Cidadão','Cadastro de
+    cidadão','♧'),('chamados','Chamados','Cadastre cidadão e
+    locais para atendimento','☎'),('agendas','Agendas','Consulte e organize
+    agendas','▦'),('agendamentos','Agendamentos','Gerencie os agendamentos','◷')] %}<a class="module-card"
+        href="{{ url_for('dados.listar', nome_modelo=chave) }}"><span class="module-icon">{{ icone }}</span><strong>{{
+            rotulo }}</strong><small>{{ descricao }}</small><span class="card-arrow">→</span></a>{% endfor %}<a class="module-card" href="{{ url_for('dados.locais_destino') }}"><span class="module-icon">⌂</span><strong>Locais</strong><small>Cadastro de locais compartilhados</small><span class="card-arrow">→</span></a></div>
+{% endblock %}
